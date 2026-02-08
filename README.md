@@ -1,16 +1,49 @@
-# React + Vite
+🎓 Student Training Point Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A web-based system for managing and evaluating student training points with a multi-role approval workflow.
 
-Currently, two official plugins are available:
+👥 User Roles
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+👨‍🎓 Student – Self-assess training points
 
-## React Compiler
+🧑‍💼 Class Leader – Review class submissions
 
-The React Compiler is currently not compatible with SWC. See [this issue](https://github.com/vitejs/vite-plugin-react/issues/428) for tracking the progress.
+👩‍🏫 Homeroom Teacher – Approve student results
 
-## Expanding the ESLint configuration
+🏫 Faculty Staff – Faculty-level review
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+🏢 Student Affairs Office – Final approval & policies
+
+👑 Admin – System & user management
+
+🔄 Workflow
+
+Student → Class Leader → Homeroom Teacher → Faculty → Student Affairs → Final Result
+
+✨ Key Features
+
+📝 Training point self-assessment
+
+✅ Multi-level approval process
+
+🔐 Role-based access control (RBAC)
+
+📊 Reports & statistics by term
+
+⚙️ System configuration & policies
+
+👥 User & permission management
+
+🧱 Tech Stack
+
+⚛️ Frontend: React
+
+🧩 Architecture: Role-based modules
+
+🔗 API: RESTful backend
+
+🔐 Auth: JWT / Role-based authorization
+
+🎯 Project Goal
+
+Build a scalable and maintainable training point management system that reflects real-world academic workflows.
