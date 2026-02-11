@@ -24,7 +24,7 @@ const RootRedirect = () => {
     case ROLES.ADMIN:
       return <Navigate to="/admin" replace />;
     case ROLES.STUDENT:
-      return <Navigate to="/student" replace />;
+      return <Navigate to="/student/individual-score" replace />;
     case ROLES.CLASS_LEADER:
       return <Navigate to="/class-leader" replace />;
     case ROLES.FACULTY_STAFF:
