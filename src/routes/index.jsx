@@ -11,6 +11,9 @@ import FacultyStaffLayout from "../layouts/FacultyStaffLayout";
 import HomeroomTeacherLayout from "../layouts/HomeroomTeacherLayout";
 import StudentAffairsLayout from "../layouts/StudentAffairsLayout";
 
+// student routes
+import studentRoutes from "../modules/student/student.routes";
+
 // Redirect "/" theo trạng thái login + role
 const RootRedirect = () => {
   const role = localStorage.getItem("role");
@@ -56,15 +59,20 @@ const AppRoutes = () => {
         }
       />
 
-      {/* STUDENT */}
+      {/* STUDENT - WITH NESTED ROUTES */}
       <Route
-        path="/student/*"
+        path="/student"
         element={
           <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
             <StudentLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        {/* Map student routes as children */}
+        {studentRoutes.map((route, index) => (
+          <Route key={index} path={route.path} element={route.element} />
+        ))}
+      </Route>
 
       {/* CLASS LEADER */}
       <Route

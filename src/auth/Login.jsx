@@ -45,7 +45,7 @@ const Login = () => {
         navigate("/student-affairs");
         break;
       case ROLES.STUDENT:
-        navigate("/student");
+        navigate("/student/individual-score");
         break;
       default:
         navigate("/");
@@ -55,26 +55,28 @@ const Login = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-[#3d2f6b] text-white py-4 px-6">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="Logo" className="h-10" />
+      <div className="bg-[#3d2f6b] text-white py-3 md:py-4 px-4 md:px-6">
+        <div className="flex items-center gap-2 md:gap-3">
+          <img src={logo} alt="Logo" className="h-8 md:h-10" />
           <div>
-            <div className="font-bold text-lg">DUE-Score</div>
-            <div className="text-sm">HỆ THỐNG QUẢN LÝ ĐIỂM RÈN LUYỆN DUE</div>
+            <div className="font-bold text-base md:text-lg">DUE-Score</div>
+            <div className="text-xs md:text-sm">
+              HỆ THỐNG QUẢN LÝ ĐIỂM RÈN LUYỆN DUE
+            </div>
           </div>
         </div>
       </div>
 
       {/* Login Form */}
-      <div className="flex items-center justify-center pt-20">
-        <div className="w-full max-w-md px-6">
+      <div className="flex items-center justify-center px-4 py-8 md:pt-20">
+        <div className="w-full max-w-md">
           {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <img src={logoLogin} alt="Logo" className="h-25" />
+          <div className="flex justify-center mb-6 md:mb-8">
+            <img src={logoLogin} alt="Logo" className="h-20 md:h-25 w-auto" />
           </div>
 
           {/* Title */}
-          <h1 className="text-3xl font-bold text-[#3d2f6b] text-center mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold text-[#3d2f6b] text-center mb-6 md:mb-8">
             ĐĂNG NHẬP
           </h1>
 
@@ -88,7 +90,7 @@ const Login = () => {
                 value={form.username}
                 onChange={handleChange}
                 placeholder="Nhập tên tài khoản"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent"
+                className="w-full px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent text-sm md:text-base"
                 required
               />
             </div>
@@ -101,7 +103,7 @@ const Login = () => {
                 value={form.password}
                 onChange={handleChange}
                 placeholder="Nhập mật khẩu"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent"
+                className="w-full px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent text-sm md:text-base"
                 required
               />
             </div>
@@ -112,22 +114,16 @@ const Login = () => {
                 name="role"
                 value={form.role}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent text-gray-700"
+                className="w-full px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent text-gray-700 text-sm md:text-base cursor-pointer"
               >
-                <option value={ROLES.STUDENT}>Student - Sinh viên</option>
-                <option value={ROLES.CLASS_LEADER}>
-                  Class Leader - Lớp trưởng
-                </option>
+                <option value={ROLES.STUDENT}>Sinh viên</option>
+                <option value={ROLES.CLASS_LEADER}>Lớp trưởng</option>
                 <option value={ROLES.HOMEROOM_TEACHER}>
-                  Homeroom Teacher - Cố vấn học tập
+                  Giáo viên chủ nhiệm
                 </option>
-                <option value={ROLES.FACULTY_STAFF}>
-                  Faculty Staff - Cán bộ khoa
-                </option>
-                <option value={ROLES.STUDENT_AFFAIRS}>
-                  Student Affairs - Phòng CTCT-SV
-                </option>
-                <option value={ROLES.ADMIN}>Admin - Quản trị viên</option>
+                <option value={ROLES.FACULTY_STAFF}>Cán bộ khoa</option>
+                <option value={ROLES.STUDENT_AFFAIRS}>Phòng CTCT-SV</option>
+                <option value={ROLES.ADMIN}>Quản trị viên</option>
               </select>
             </div>
 
@@ -138,9 +134,12 @@ const Login = () => {
                 id="remember"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 text-[#3d2f6b] border-gray-300 rounded focus:ring-[#3d2f6b]"
+                className="w-4 h-4 text-[#3d2f6b] border-gray-300 rounded focus:ring-[#3d2f6b] cursor-pointer"
               />
-              <label htmlFor="remember" className="ml-2 text-sm text-gray-700">
+              <label
+                htmlFor="remember"
+                className="ml-2 text-xs md:text-sm text-gray-700 cursor-pointer select-none"
+              >
                 Lưu thông tin đăng nhập
               </label>
             </div>
@@ -148,11 +147,11 @@ const Login = () => {
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full bg-[#3d2f6b] text-white py-3 rounded-lg font-semibold hover:bg-[#2f2454] transition-colors duration-200 flex items-center justify-center gap-2"
+              className="w-full bg-[#3d2f6b] text-white py-2.5 md:py-3 rounded-lg font-semibold hover:bg-[#2f2454] active:bg-[#261d3f] transition-colors duration-200 flex items-center justify-center gap-2 text-sm md:text-base cursor-pointer touch-manipulation"
             >
               Đăng nhập ngay
               <svg
-                className="w-5 h-5"
+                className="w-4 h-4 md:w-5 md:h-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -166,6 +165,11 @@ const Login = () => {
               </svg>
             </button>
           </form>
+
+          {/* Footer Info - Optional */}
+          <div className="mt-6 text-center text-xs md:text-sm text-gray-500">
+            <p>© 2026 Đại học Kinh tế - Đại học Đà Nẵng</p>
+          </div>
         </div>
       </div>
     </div>

@@ -5,7 +5,8 @@ const useLogout = () => {
 
   const logout = () => {
     localStorage.removeItem("role");
-    navigate("/login");
+    navigate("/login", { replace: true });
+    window.location.reload();
   };
 
   return logout;
