@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 export const useScoreManagement = (scoreData) => {
   const [selectedSemester, setSelectedSemester] = useState("Kỳ II");
@@ -10,56 +10,50 @@ export const useScoreManagement = (scoreData) => {
   const [savedScores, setSavedScores] = useState({});
   const [tempScores, setTempScores] = useState({});
   const [viewingImage, setViewingImage] = useState(null);
-  const fileInputRefs = useRef({});
 
-  // Effect để khóa scroll khi modal mở
+  // State modal thêm mới minh chứng
+  const [modalItemKey, setModalItemKey] = useState(null);
+
+  // State modal chỉnh sửa minh chứng: { itemKey, imageIndex }
+  const [editingImage, setEditingImage] = useState(null);
+
   useEffect(() => {
-    if (showConfirmModal || viewingImage) {
+    if (showConfirmModal || viewingImage || modalItemKey || editingImage) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "unset";
     }
-
     return () => {
       document.body.style.overflow = "unset";
     };
-  }, [showConfirmModal, viewingImage]);
+  }, [showConfirmModal, viewingImage, modalItemKey, editingImage]);
 
-  // Kiểm tra xem có dữ liệu cho học kỳ hiện tại không
   const hasDataForCurrentPeriod =
     selectedSemester === "Kỳ II" && selectedYear === "2025-2026";
 
-  // Tạo unique key cho mỗi item
   const getItemKey = (sectionIdx, criterionIdx, itemIdx) => {
     return `${sectionIdx}-${criterionIdx}-${itemIdx}`;
   };
 
-  // Tính tổng điểm cho từng section
   const calculateSectionScore = (sectionIdx) => {
     const section = scoreData[sectionIdx];
     let total = 0;
-
     section.criteria.forEach((criterion, criterionIdx) => {
       criterion.items.forEach((item, itemIdx) => {
         if (item.note) return;
-
         const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
         const scoreSource = isEditing ? tempScores : savedScores;
         const score = scoreSource[itemKey];
-
         if (score !== undefined && score !== "") {
           total += Number(score);
         }
       });
     });
-
     return total;
   };
 
-  // Xử lý thay đổi điểm
   const handleScoreChange = (itemKey, value, maxScore) => {
     const numValue = value === "" ? "" : Number(value);
-
     if (value === "" || (numValue >= 0 && numValue <= maxScore)) {
       setTempScores((prev) => ({
         ...prev,
@@ -68,20 +62,51 @@ export const useScoreManagement = (scoreData) => {
     }
   };
 
-  // Xử lý upload ảnh
-  const handleImageUpload = (e, itemKey) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-
-    const imageUrls = files.map((file) => URL.createObjectURL(file));
-
-    setTempImages((prev) => ({
-      ...prev,
-      [itemKey]: [...(prev[itemKey] || []), ...imageUrls],
-    }));
+  // Mở modal thêm minh chứng mới
+  const handleUploadClick = (itemKey) => {
+    if (isEditing) {
+      setModalItemKey(itemKey);
+    }
   };
 
-  // Xóa ảnh tạm
+  // Lưu minh chứng mới từ modal
+  const handleSaveMinhChung = ({ file, description, date }) => {
+    const url = URL.createObjectURL(file);
+    setTempImages((prev) => ({
+      ...prev,
+      [modalItemKey]: [
+        ...(prev[modalItemKey] || []),
+        { url, description, date },
+      ],
+    }));
+    setModalItemKey(null);
+  };
+
+  // Click vào ảnh minh chứng
+  // - Đang edit: mở modal chỉnh sửa
+  // - Không edit: mở viewer phóng to
+  const handleImageClick = (imageObj, itemKey, imageIndex) => {
+    if (isEditing) {
+      setEditingImage({ itemKey, imageIndex, data: imageObj });
+    } else if (imageObj && imageObj.url) {
+      setViewingImage(imageObj);
+    }
+  };
+
+  // Lưu chỉnh sửa minh chứng
+  const handleUpdateMinhChung = ({ file, preview, description, date }) => {
+    const { itemKey, imageIndex } = editingImage;
+    // Nếu người dùng chọn ảnh mới thì dùng file mới, không thì giữ url cũ
+    const url = file ? URL.createObjectURL(file) : preview;
+    setTempImages((prev) => {
+      const updated = [...(prev[itemKey] || [])];
+      updated[imageIndex] = { url, description, date };
+      return { ...prev, [itemKey]: updated };
+    });
+    setEditingImage(null);
+  };
+
+  // Xóa minh chứng tạm
   const handleRemoveTempImage = (itemKey, imageIndex) => {
     setTempImages((prev) => ({
       ...prev,
@@ -89,31 +114,14 @@ export const useScoreManagement = (scoreData) => {
     }));
   };
 
-  // Xử lý click vào "Tải minh chứng lên"
-  const handleUploadClick = (itemKey) => {
-    if (isEditing && fileInputRefs.current[itemKey]) {
-      fileInputRefs.current[itemKey].click();
-    }
-  };
-
-  // Xử lý click vào ảnh để xem phóng to
-  const handleImageClick = (imageUrl) => {
-    if (!isEditing) {
-      setViewingImage(imageUrl);
-    }
-  };
-
-  // Đóng image viewer
   const closeImageViewer = () => {
     setViewingImage(null);
   };
 
-  // Lưu ảnh và điểm
   const handleSave = () => {
     setShowConfirmModal(true);
   };
 
-  // Xác nhận lưu
   const handleConfirmSave = () => {
     const filteredScores = {};
     Object.keys(tempScores).forEach((key) => {
@@ -141,12 +149,10 @@ export const useScoreManagement = (scoreData) => {
     setShowConfirmModal(false);
   };
 
-  // Hủy lưu
   const handleCancelSave = () => {
     setShowConfirmModal(false);
   };
 
-  // Kiểm tra xem có dữ liệu đã lưu không
   const hasAnySavedData = () => {
     const hasSavedImages = Object.values(uploadedImages).some(
       (images) => images && images.length > 0,
@@ -157,26 +163,23 @@ export const useScoreManagement = (scoreData) => {
     return hasSavedImages || hasSavedScores;
   };
 
-  // Bắt đầu chế độ chấm điểm
   const handleStartScoring = () => {
     setIsEditing(true);
     setTempImages({ ...uploadedImages });
     setTempScores({ ...savedScores });
   };
 
-  // Lấy điểm hiển thị cho item
   const getDisplayScore = (itemKey) => {
     if (isEditing) {
       return tempScores[itemKey] !== undefined
         ? tempScores[itemKey]
         : savedScores[itemKey] !== undefined
-          ? savedScores[itemKey]
-          : "";
+        ? savedScores[itemKey]
+        : "";
     }
     return savedScores[itemKey] !== undefined ? savedScores[itemKey] : "";
   };
 
-  // Tính tổng cho bảng
   const calculateTotals = () => {
     return scoreData.reduce(
       (acc, section) => {
@@ -207,7 +210,6 @@ export const useScoreManagement = (scoreData) => {
   };
 
   return {
-    // States
     selectedSemester,
     selectedYear,
     isEditing,
@@ -215,18 +217,15 @@ export const useScoreManagement = (scoreData) => {
     uploadedImages,
     tempImages,
     savedScores,
-    tempScores,
     viewingImage,
-    fileInputRefs,
     hasDataForCurrentPeriod,
-
-    // Setters
+    modalItemKey,
+    setModalItemKey,
+    editingImage,
+    setEditingImage,
     setSelectedSemester,
     setSelectedYear,
-
-    // Handlers
     handleScoreChange,
-    handleImageUpload,
     handleRemoveTempImage,
     handleUploadClick,
     handleImageClick,
@@ -235,8 +234,8 @@ export const useScoreManagement = (scoreData) => {
     handleConfirmSave,
     handleCancelSave,
     handleStartScoring,
-
-    // Helpers
+    handleSaveMinhChung,
+    handleUpdateMinhChung,
     getItemKey,
     calculateSectionScore,
     hasAnySavedData,

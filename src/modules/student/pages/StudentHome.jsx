@@ -7,6 +7,7 @@ import ScoreTableDesktop from "../components/ScoreTableDesktop";
 import ScoreCardsMobile from "../components/ScoreCardsMobile";
 import ImageViewer from "../components/ImageViewer";
 import ConfirmModal from "../components/ConfirmModal";
+import MinhChungModal from "../components/MinhChungModal";
 
 const StudentHome = () => {
   const {
@@ -17,12 +18,14 @@ const StudentHome = () => {
     uploadedImages,
     tempImages,
     viewingImage,
-    fileInputRefs,
     hasDataForCurrentPeriod,
+    modalItemKey,
+    setModalItemKey,
+    editingImage,
+    setEditingImage,
     setSelectedSemester,
     setSelectedYear,
     handleScoreChange,
-    handleImageUpload,
     handleRemoveTempImage,
     handleUploadClick,
     handleImageClick,
@@ -31,12 +34,13 @@ const StudentHome = () => {
     handleConfirmSave,
     handleCancelSave,
     handleStartScoring,
+    handleSaveMinhChung,
+    handleUpdateMinhChung,
     getItemKey,
     calculateSectionScore,
     hasAnySavedData,
     getDisplayScore,
     calculateTotals,
-    savedScores,
   } = useScoreManagement(scoreData);
 
   const totals = calculateTotals();
@@ -75,8 +79,6 @@ const StudentHome = () => {
             isEditing={isEditing}
             uploadedImages={uploadedImages}
             tempImages={tempImages}
-            savedScores={savedScores}
-            fileInputRefs={fileInputRefs}
             getItemKey={getItemKey}
             calculateSectionScore={calculateSectionScore}
             getDisplayScore={getDisplayScore}
@@ -84,7 +86,6 @@ const StudentHome = () => {
             handleUploadClick={handleUploadClick}
             handleImageClick={handleImageClick}
             handleRemoveTempImage={handleRemoveTempImage}
-            handleImageUpload={handleImageUpload}
           />
 
           {/* Score Cards - Mobile & Tablet */}
@@ -94,7 +95,6 @@ const StudentHome = () => {
             isEditing={isEditing}
             uploadedImages={uploadedImages}
             tempImages={tempImages}
-            fileInputRefs={fileInputRefs}
             getItemKey={getItemKey}
             calculateSectionScore={calculateSectionScore}
             getDisplayScore={getDisplayScore}
@@ -102,7 +102,6 @@ const StudentHome = () => {
             handleUploadClick={handleUploadClick}
             handleImageClick={handleImageClick}
             handleRemoveTempImage={handleRemoveTempImage}
-            handleImageUpload={handleImageUpload}
           />
 
           {/* Action Button - Bottom */}
@@ -117,7 +116,7 @@ const StudentHome = () => {
         </>
       )}
 
-      {/* Image Viewer Modal */}
+      {/* Image Viewer Modal (chỉ khi không edit) */}
       <ImageViewer imageUrl={viewingImage} onClose={closeImageViewer} />
 
       {/* Confirmation Modal */}
@@ -126,6 +125,23 @@ const StudentHome = () => {
         onConfirm={handleConfirmSave}
         onCancel={handleCancelSave}
       />
+
+      {/* Modal thêm minh chứng mới */}
+      {modalItemKey && (
+        <MinhChungModal
+          onSave={handleSaveMinhChung}
+          onClose={() => setModalItemKey(null)}
+        />
+      )}
+
+      {/* Modal chỉnh sửa minh chứng */}
+      {editingImage && (
+        <MinhChungModal
+          initialData={editingImage.data}
+          onSave={handleUpdateMinhChung}
+          onClose={() => setEditingImage(null)}
+        />
+      )}
     </div>
   );
 };

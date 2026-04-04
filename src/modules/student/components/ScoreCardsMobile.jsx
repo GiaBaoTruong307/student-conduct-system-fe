@@ -4,7 +4,6 @@ const ScoreCardsMobile = ({
   isEditing,
   uploadedImages,
   tempImages,
-  fileInputRefs,
   getItemKey,
   calculateSectionScore,
   getDisplayScore,
@@ -12,7 +11,6 @@ const ScoreCardsMobile = ({
   handleUploadClick,
   handleImageClick,
   handleRemoveTempImage,
-  handleImageUpload,
 }) => {
   return (
     <div className="lg:hidden space-y-4">
@@ -29,21 +27,15 @@ const ScoreCardsMobile = ({
             <div className="grid grid-cols-3 gap-2 mt-3 text-xs md:text-sm">
               <div className="text-center">
                 <div className="text-gray-600">Tối đa</div>
-                <div className="font-bold text-[#3d2f6b]">
-                  {section.maxScore}
-                </div>
+                <div className="font-bold text-[#3d2f6b]">{section.maxScore}</div>
               </div>
               <div className="text-center">
                 <div className="text-gray-600">SV đánh giá</div>
-                <div className="font-bold text-[#3d2f6b]">
-                  {calculateSectionScore(sectionIdx)}
-                </div>
+                <div className="font-bold text-[#3d2f6b]">{calculateSectionScore(sectionIdx)}</div>
               </div>
               <div className="text-center">
                 <div className="text-gray-600">GVCN đánh giá</div>
-                <div className="font-bold text-[#3d2f6b]">
-                  {section.reviewerScore}
-                </div>
+                <div className="font-bold text-[#3d2f6b]">{section.reviewerScore}</div>
               </div>
             </div>
           </div>
@@ -102,11 +94,7 @@ const ScoreCardsMobile = ({
                                 max={item.maxScore}
                                 value={displayScore}
                                 onChange={(e) =>
-                                  handleScoreChange(
-                                    itemKey,
-                                    e.target.value,
-                                    item.maxScore,
-                                  )
+                                  handleScoreChange(itemKey, e.target.value, item.maxScore)
                                 }
                                 className="w-12 px-1 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent"
                                 placeholder="0"
@@ -121,8 +109,7 @@ const ScoreCardsMobile = ({
                         <div className="text-center">
                           <div className="text-gray-600">GVCN</div>
                           <div className="font-semibold">
-                            {item.reviewerScore !== null &&
-                            item.reviewerScore !== undefined
+                            {item.reviewerScore !== null && item.reviewerScore !== undefined
                               ? item.reviewerScore
                               : "-"}
                           </div>
@@ -131,52 +118,52 @@ const ScoreCardsMobile = ({
 
                       {/* Proof/Note */}
                       {item.note ? (
-                        <div className="text-xs text-gray-500 italic">
-                          {item.note}
-                        </div>
+                        <div className="text-xs text-gray-500 italic">{item.note}</div>
                       ) : (
                         <div className="space-y-2">
                           {isEditing && (
-                            <div>
-                              <button
-                                onClick={() => handleUploadClick(itemKey)}
-                                className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                              >
-                                {item.proof}
-                              </button>
-                              <input
-                                ref={(el) =>
-                                  (fileInputRefs.current[itemKey] = el)
-                                }
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                onChange={(e) => handleImageUpload(e, itemKey)}
-                                className="hidden"
-                              />
-                            </div>
+                            <button
+                              onClick={() => handleUploadClick(itemKey)}
+                              className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                            >
+                              {item.proof}
+                            </button>
                           )}
 
                           {currentImages.length > 0 && (
                             <div className="flex flex-wrap gap-2">
                               {currentImages.map((img, imgIdx) => (
                                 <div key={imgIdx} className="relative group">
-                                  <img
-                                    src={img}
-                                    alt={`Preview ${imgIdx + 1}`}
-                                    className={`w-16 h-16 object-cover rounded border border-gray-300 ${
-                                      !isEditing
-                                        ? "cursor-pointer hover:opacity-80 transition-opacity"
-                                        : ""
-                                    }`}
-                                    onClick={() => handleImageClick(img)}
-                                  />
+                                  <div
+                                    className="relative w-16 h-16 cursor-pointer"
+                                    onClick={() => handleImageClick(img, itemKey, imgIdx)}
+                                  >
+                                    <img
+                                      src={img.url}
+                                      alt={`Preview ${imgIdx + 1}`}
+                                      className="w-16 h-16 object-cover rounded border border-gray-300 hover:opacity-80 transition-opacity"
+                                    />
+                                    {/* Badge edit khi đang sửa */}
+                                    {isEditing && (
+                                      <div className="absolute inset-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 pointer-events-none">
+                                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-gray-700 mt-1 max-w-[64px] truncate" title={img.description}>
+                                    {img.description}
+                                  </div>
+                                  <div className="text-xs text-gray-500">{img.date}</div>
                                   {isEditing && (
                                     <button
-                                      onClick={() =>
-                                        handleRemoveTempImage(itemKey, imgIdx)
-                                      }
-                                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center cursor-pointer text-sm font-bold"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRemoveTempImage(itemKey, imgIdx);
+                                      }}
+                                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center cursor-pointer text-sm font-bold z-10"
                                     >
                                       ×
                                     </button>
@@ -206,15 +193,11 @@ const ScoreCardsMobile = ({
           </div>
           <div className="text-center">
             <div className="text-gray-600 text-xs">SV đánh giá</div>
-            <div className="font-bold text-[#3d2f6b] text-lg">
-              {totals.self}
-            </div>
+            <div className="font-bold text-[#3d2f6b] text-lg">{totals.self}</div>
           </div>
           <div className="text-center">
             <div className="text-gray-600 text-xs">GVCN đánh giá</div>
-            <div className="font-bold text-[#3d2f6b] text-lg">
-              {totals.reviewer}
-            </div>
+            <div className="font-bold text-[#3d2f6b] text-lg">{totals.reviewer}</div>
           </div>
         </div>
       </div>
