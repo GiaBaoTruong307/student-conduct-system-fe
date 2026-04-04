@@ -119,67 +119,60 @@ const ScoreTableDesktop = ({
                               ? item.reviewerScore
                               : "-"}
                           </td>
-                          {/* FIX: cột minh chứng — hiện note text thay vì trống */}
                           <td className="px-4 py-2 text-center">
-                            {item.note ? (
-                              <span className="text-xs text-gray-400 italic">
-                                {item.note}
-                              </span>
-                            ) : (
-                              <>
-                                {isEditing && (
-                                  <button
-                                    onClick={() => handleUploadClick(itemKey)}
-                                    className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                                  >
-                                    {item.proof}
-                                  </button>
-                                )}
-                                {currentImages.length > 0 && (
-                                  <div className="flex flex-wrap gap-2 justify-center mt-2">
-                                    {currentImages.map((img, imgIdx) => (
-                                      <div key={imgIdx} className="relative group">
-                                        <div
-                                          className="relative w-16 h-16 cursor-pointer"
-                                          onClick={() => handleImageClick(img, itemKey, imgIdx)}
-                                        >
-                                          <img
-                                            src={img.url}
-                                            alt={`Minh chứng ${imgIdx + 1}`}
-                                            className="w-16 h-16 object-cover rounded border border-gray-300 hover:opacity-80 transition-opacity"
-                                          />
-                                          {isEditing && (
-                                            <div className="absolute inset-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 pointer-events-none">
-                                              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                              </svg>
-                                            </div>
-                                          )}
+                            {/* Nút upload thêm mới */}
+                            {isEditing && !item.note && (
+                              <button
+                                onClick={() => handleUploadClick(itemKey)}
+                                className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                              >
+                                {item.proof}
+                              </button>
+                            )}
+
+                            {/* Danh sách minh chứng */}
+                            {currentImages.length > 0 && (
+                              <div className="flex flex-wrap gap-2 justify-center mt-2">
+                                {currentImages.map((img, imgIdx) => (
+                                  <div key={imgIdx} className="relative group">
+                                    <div
+                                      className="relative w-16 h-16 cursor-pointer"
+                                      onClick={() => handleImageClick(img, itemKey, imgIdx)}
+                                    >
+                                      <img
+                                        src={img.url}
+                                        alt={`Minh chứng ${imgIdx + 1}`}
+                                        className="w-16 h-16 object-cover rounded border border-gray-300 hover:opacity-80 transition-opacity"
+                                      />
+                                      {/* Badge edit khi đang sửa */}
+                                      {isEditing && (
+                                        <div className="absolute inset-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 pointer-events-none">
+                                          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                          </svg>
                                         </div>
-                                        <div className="text-xs text-gray-700 mt-1 max-w-[64px] truncate" title={img.description}>
-                                          {img.description}
-                                        </div>
-                                        <div className="text-xs text-gray-500">{img.date}</div>
-                                        {isEditing && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleRemoveTempImage(itemKey, imgIdx);
-                                            }}
-                                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center cursor-pointer text-sm font-bold z-10"
-                                          >
-                                            ×
-                                          </button>
-                                        )}
-                                      </div>
-                                    ))}
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-gray-700 mt-1 max-w-[64px] truncate" title={img.description}>
+                                      {img.description}
+                                    </div>
+                                    <div className="text-xs text-gray-500">{img.date}</div>
+                                    {/* Nút xóa */}
+                                    {isEditing && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRemoveTempImage(itemKey, imgIdx);
+                                        }}
+                                        className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center cursor-pointer text-sm font-bold z-10"
+                                      >
+                                        ×
+                                      </button>
+                                    )}
                                   </div>
-                                )}
-                                {!isEditing && currentImages.length === 0 && (
-                                  <span className="text-xs text-gray-400 italic">Không có</span>
-                                )}
-                              </>
+                                ))}
+                              </div>
                             )}
                           </td>
                         </tr>

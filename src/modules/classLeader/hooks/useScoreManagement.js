@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useScoreContext } from "../../../context/ScoreContext";
 
 const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {
@@ -10,22 +9,13 @@ const fileToBase64 = (file) =>
   });
 
 export const useScoreManagement = (scoreData) => {
-  const {
-    setStudentSelfTotal,
-    setStudentSavedScores,
-    setStudentUploadedImages,
-    studentSavedScores,
-    studentUploadedImages,
-  } = useScoreContext();
-
   const [selectedSemester, setSelectedSemester] = useState("Kỳ II");
   const [selectedYear, setSelectedYear] = useState("2025-2026");
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  // FIX: khởi tạo từ context (đã đọc từ localStorage) thay vì {} rỗng
-  const [uploadedImages, setUploadedImages] = useState(() => studentUploadedImages);
+  const [uploadedImages, setUploadedImages] = useState({});
   const [tempImages, setTempImages] = useState({});
-  const [savedScores, setSavedScores] = useState(() => studentSavedScores);
+  const [savedScores, setSavedScores] = useState({});
   const [tempScores, setTempScores] = useState({});
   const [viewingImage, setViewingImage] = useState(null);
   const [modalItemKey, setModalItemKey] = useState(null);
@@ -144,16 +134,6 @@ export const useScoreManagement = (scoreData) => {
     setTempScores({});
     setIsEditing(false);
     setShowConfirmModal(false);
-
-    const total = Object.values(filteredScores).reduce(
-      (sum, v) =>
-        sum + (v !== "" && v !== null && v !== undefined ? Number(v) : 0),
-      0
-    );
-
-    setStudentSelfTotal(total);
-    setStudentSavedScores(filteredScores);
-    setStudentUploadedImages(filteredImages);
   };
 
   const handleCancelSave = () => setShowConfirmModal(false);

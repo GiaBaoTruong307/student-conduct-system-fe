@@ -13,6 +13,8 @@ import StudentAffairsLayout from "../layouts/StudentAffairsLayout";
 
 // student routes
 import studentRoutes from "../modules/student/student.routes";
+// class leader routes
+import classLeaderRoutes from "../modules/classLeader/classLeader.routes";
 
 // Redirect "/" theo trạng thái login + role
 const RootRedirect = () => {
@@ -26,7 +28,7 @@ const RootRedirect = () => {
     case ROLES.STUDENT:
       return <Navigate to="/student/individual-score" replace />;
     case ROLES.CLASS_LEADER:
-      return <Navigate to="/class-leader" replace />;
+      return <Navigate to="/class-leader/individual-score" replace />;
     case ROLES.FACULTY_STAFF:
       return <Navigate to="/faculty-staff" replace />;
     case ROLES.HOMEROOM_TEACHER:
@@ -68,21 +70,24 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        {/* Map student routes as children */}
         {studentRoutes.map((route, index) => (
-          <Route key={index} path={route.path} element={route.element} />
+          <Route key={index} index={route.index} path={route.path} element={route.element} />
         ))}
       </Route>
 
-      {/* CLASS LEADER */}
+      {/* CLASS LEADER - WITH NESTED ROUTES */}
       <Route
-        path="/class-leader/*"
+        path="/class-leader"
         element={
           <ProtectedRoute allowedRoles={[ROLES.CLASS_LEADER]}>
             <ClassLeaderLayout />
           </ProtectedRoute>
         }
-      />
+      >
+        {classLeaderRoutes.map((route, index) => (
+          <Route key={index} index={route.index} path={route.path} element={route.element} />
+        ))}
+      </Route>
 
       {/* FACULTY STAFF */}
       <Route

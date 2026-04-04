@@ -1,7 +1,12 @@
 import AppRoutes from "./routes";
+import { ScoreProvider } from "./context/ScoreContext";
 
 function App() {
-  return <AppRoutes />;
+  return (
+    <ScoreProvider>
+      <AppRoutes />
+    </ScoreProvider>
+  );
 }
 
 export default App;
