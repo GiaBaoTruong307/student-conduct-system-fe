@@ -1,17 +1,17 @@
-const ReviewerScoreCardsMobile = ({
+const GVCNScoreCardsMobile = ({
   scoreData,
   selfScores = {},
   uploadedImages = {},
   isEditing,
   getItemKey,
-  calculateReviewerSectionScore,
-  getReviewerDisplayScore,
-  handleReviewerScoreChange,
+  calculateGvcnSectionScore,
+  getGvcnDisplayScore,
+  handleGvcnScoreChange,
   handleImageClick,
-  getNote,
-  openNoteModal,
+  getBcsNote,
+  openBcsNoteModal,
   selfTotal,
-  reviewerTotals,
+  gvcnTotals,
 }) => {
   const getSelfSectionScore = (sectionIdx, section) => {
     if (!selfScores) return 0;
@@ -42,9 +42,7 @@ const ReviewerScoreCardsMobile = ({
             <div className="grid grid-cols-3 gap-2 mt-3 text-xs md:text-sm">
               <div className="text-center">
                 <div className="text-gray-600">Tối đa</div>
-                <div className="font-bold text-[#3d2f6b]">
-                  {section.maxScore}
-                </div>
+                <div className="font-bold text-[#3d2f6b]">{section.maxScore}</div>
               </div>
               <div className="text-center">
                 <div className="text-gray-600">SV đánh giá</div>
@@ -53,9 +51,9 @@ const ReviewerScoreCardsMobile = ({
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-gray-600">BCS đánh giá</div>
-                <div className="font-bold text-green-700">
-                  {calculateReviewerSectionScore(sectionIdx)}
+                <div className="text-gray-600">GVCN đánh giá</div>
+                <div className="font-bold text-emerald-700">
+                  {calculateGvcnSectionScore(sectionIdx)}
                 </div>
               </div>
             </div>
@@ -63,10 +61,7 @@ const ReviewerScoreCardsMobile = ({
 
           <div className="p-4 space-y-4">
             {section.criteria.map((criterion, criterionIdx) => (
-              <div
-                key={`mob-cr-${sectionIdx}-${criterionIdx}`}
-                className="space-y-3"
-              >
+              <div key={`mob-cr-${sectionIdx}-${criterionIdx}`} className="space-y-3">
                 <div className="flex gap-2">
                   <span className="font-semibold text-gray-700 italic text-sm flex-shrink-0">
                     {criterion.id}
@@ -79,9 +74,9 @@ const ReviewerScoreCardsMobile = ({
                 {criterion.items.map((item, itemIdx) => {
                   const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
                   const images = (uploadedImages && uploadedImages[itemKey]) || [];
-                  const reviewerScore = getReviewerDisplayScore(itemKey);
+                  const gvcnScore = getGvcnDisplayScore(itemKey);
                   const selfScore = selfScores ? selfScores[itemKey] : undefined;
-                  const note = getNote(itemKey);
+                  const bcsNote = getBcsNote(itemKey);
 
                   return (
                     <div
@@ -110,30 +105,28 @@ const ReviewerScoreCardsMobile = ({
                           </div>
                         </div>
                         <div className="text-center">
-                          <div className="text-gray-600">BCS</div>
+                          <div className="text-gray-600">GVCN</div>
                           <div className="font-semibold">
                             {item.note ? (
                               <span className="text-gray-400">-</span>
-                            ) : isEditing && handleReviewerScoreChange ? (
+                            ) : isEditing ? (
                               <input
                                 type="number"
                                 min="0"
                                 max={item.maxScore}
-                                value={reviewerScore}
+                                value={gvcnScore}
                                 onChange={(e) =>
-                                  handleReviewerScoreChange(
+                                  handleGvcnScoreChange(
                                     itemKey,
                                     e.target.value,
                                     item.maxScore
                                   )
                                 }
-                                className="w-12 px-1 py-0.5 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-[#3d2f6b]"
+                                className="w-12 px-1 py-0.5 border border-emerald-400 rounded text-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
                                 placeholder="0"
                               />
-                            ) : reviewerScore !== "" ? (
-                              <span className="text-green-700">
-                                {reviewerScore}
-                              </span>
+                            ) : gvcnScore !== "" ? (
+                              <span className="text-emerald-700">{gvcnScore}</span>
                             ) : (
                               "-"
                             )}
@@ -161,31 +154,21 @@ const ReviewerScoreCardsMobile = ({
                               >
                                 {img.description}
                               </div>
-                              <div className="text-xs text-gray-500">
-                                {img.date}
-                              </div>
+                              <div className="text-xs text-gray-500">{img.date}</div>
                             </div>
                           ))}
                         </div>
                       )}
 
-                      {/* BCS Note */}
-                      {!item.note &&
-                        (isEditing ? (
-                          <button
-                            onClick={() => openNoteModal(itemKey)}
-                            className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                          >
-                            {note ? "Sửa ghi chú" : "Thêm ghi chú"}
-                          </button>
-                        ) : note ? (
-                          <button
-                            onClick={() => openNoteModal(itemKey)}
-                            className="text-xs text-[#3d2f6b] hover:underline cursor-pointer font-medium"
-                          >
-                            Xem ghi chú
-                          </button>
-                        ) : null)}
+                      {/* Ghi chú BCS — chỉ xem */}
+                      {!item.note && bcsNote && (
+                        <button
+                          onClick={() => openBcsNoteModal(itemKey)}
+                          className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                        >
+                          Xem ghi chú BCS
+                        </button>
+                      )}
                     </div>
                   );
                 })}
@@ -201,19 +184,15 @@ const ReviewerScoreCardsMobile = ({
         <div className="grid grid-cols-3 gap-2 text-sm">
           <div className="text-center">
             <div className="text-gray-600 text-xs">Điểm tối đa</div>
-            <div className="font-bold text-[#3d2f6b] text-lg">
-              {reviewerTotals.max}
-            </div>
+            <div className="font-bold text-[#3d2f6b] text-lg">{gvcnTotals.max}</div>
           </div>
           <div className="text-center">
             <div className="text-gray-600 text-xs">SV đánh giá</div>
             <div className="font-bold text-[#3d2f6b] text-lg">{selfTotal}</div>
           </div>
           <div className="text-center">
-            <div className="text-gray-600 text-xs">BCS đánh giá</div>
-            <div className="font-bold text-green-700 text-lg">
-              {reviewerTotals.reviewer}
-            </div>
+            <div className="text-gray-600 text-xs">GVCN đánh giá</div>
+            <div className="font-bold text-emerald-700 text-lg">{gvcnTotals.gvcn}</div>
           </div>
         </div>
       </div>
@@ -221,4 +200,4 @@ const ReviewerScoreCardsMobile = ({
   );
 };
 
-export default ReviewerScoreCardsMobile;
+export default GVCNScoreCardsMobile;

@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { classMembers } from "../constants/classMembers";
-import { scoreData } from "../constants/scoreData";
+import { classMembers } from "../../classLeader/constants/classMembers";
+import { scoreData } from "../../classLeader/constants/scoreData";
 import { useScoreContext } from "../../../context/ScoreContext";
-import { useReviewerScoreManagement } from "../hooks/useReviewerScoreManagement";
-import ReviewerScoreTableDesktop from "../components/ReviewerScoreTableDesktop";
-import ReviewerScoreCardsMobile from "../components/ReviewerScoreCardsMobile";
-import ImageViewer from "../components/ImageViewer";
-import ConfirmModal from "../components/ConfirmModal";
-import GhiChuModal from "../components/GhiChuModal";
+import GVCNScoreTableDesktop from "../components/GVCNScoreTableDesktop";
+import GVCNScoreCardsMobile from "../components/GVCNScoreCardsMobile";
+import GhiChuViewModal from "../components/GhiChuViewModal";
+import ImageViewer from "../../classLeader/components/ImageViewer";
+import ConfirmModal from "../../classLeader/components/ConfirmModal";
+import { useGVCNScoreManagement } from "../hooks/Usegvcnscoremanagement";
 
 const ActionButtons = ({ isEditing, hasAnySavedData, onBack, onSave, onStartScoring }) => (
   <div className="flex gap-3 flex-wrap">
@@ -35,7 +35,7 @@ const ActionButtons = ({ isEditing, hasAnySavedData, onBack, onSave, onStartScor
     ) : (
       <button
         onClick={onStartScoring}
-        className="px-5 py-2.5 bg-cyan-600 text-white font-semibold rounded-lg hover:bg-cyan-700 transition-colors cursor-pointer text-sm"
+        className="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer text-sm"
       >
         Chấm
       </button>
@@ -43,7 +43,7 @@ const ActionButtons = ({ isEditing, hasAnySavedData, onBack, onSave, onStartScor
   </div>
 );
 
-const StudentScoreDetail = () => {
+const HomeroomStudentScoreDetail = () => {
   const { mssv } = useParams();
   const navigate = useNavigate();
   const {
@@ -58,21 +58,21 @@ const StudentScoreDetail = () => {
     isEditing,
     showConfirmModal,
     noteModalKey,
+    noteModalOwner,
     getItemKey,
-    calculateReviewerSectionScore,
-    getReviewerDisplayScore,
-    handleReviewerScoreChange,
+    calculateGvcnSectionScore,
+    handleGvcnScoreChange,
+    getGvcnDisplayScore,
     handleStartScoring,
     handleSave,
     handleConfirmSave,
     handleCancelSave,
     hasAnySavedData,
-    calculateReviewerTotals,
-    openNoteModal,
-    handleSaveNote,
+    calculateGvcnTotals,
+    openBcsNoteModal,
     closeNoteModal,
-    getNote,
-  } = useReviewerScoreManagement(scoreData, mssv);
+    getBcsNote,
+  } = useGVCNScoreManagement(scoreData, mssv);
 
   const [viewingImage, setViewingImage] = useState(null);
 
@@ -81,7 +81,7 @@ const StudentScoreDetail = () => {
       <div className="flex flex-col items-center justify-center h-48 gap-4">
         <p className="text-gray-500">Không tìm thấy sinh viên.</p>
         <button
-          onClick={() => navigate("/class-leader/class-score")}
+          onClick={() => navigate("/homeroom-teacher/class-score")}
           className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 cursor-pointer text-sm"
         >
           ← Quay lại bảng điểm lớp
@@ -90,22 +90,23 @@ const StudentScoreDetail = () => {
     );
   }
 
-  const selfScores = member.isLinkedToStudent ? studentSavedScores : {};
-  const selfImages = member.isLinkedToStudent ? studentUploadedImages : {};
+  const selfScores = member.isLinkedToStudent ? (studentSavedScores || {}) : {};
+  const selfImages = member.isLinkedToStudent ? (studentUploadedImages || {}) : {};
   const selfTotal = member.isLinkedToStudent ? studentSelfTotal : 0;
 
-  const reviewerTotals = calculateReviewerTotals();
+  const gvcnTotals = calculateGvcnTotals();
   const savedData = hasAnySavedData();
-  const goBack = () => navigate("/class-leader/class-score");
+  const goBack = () => navigate("/homeroom-teacher/class-score");
+
+  const isBcsNoteOpen = noteModalKey !== null && noteModalOwner === "bcs";
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Header card: thông tin sinh viên + buttons trên */}
+      {/* Header card */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
-          {/* Thông tin sinh viên */}
           <div className="flex-1 flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
               {member.ten.charAt(0)}
             </div>
             <div>
@@ -129,39 +130,40 @@ const StudentScoreDetail = () => {
       </div>
 
       {/* Bảng điểm Desktop */}
-      <ReviewerScoreTableDesktop
+      <GVCNScoreTableDesktop
         scoreData={scoreData}
         selfScores={selfScores}
         uploadedImages={selfImages}
         isEditing={isEditing}
         getItemKey={getItemKey}
-        calculateReviewerSectionScore={calculateReviewerSectionScore}
-        getReviewerDisplayScore={getReviewerDisplayScore}
+        calculateGvcnSectionScore={calculateGvcnSectionScore}
+        getGvcnDisplayScore={getGvcnDisplayScore}
+        handleGvcnScoreChange={handleGvcnScoreChange}
         handleImageClick={(img) => setViewingImage(img)}
-        getNote={getNote}
-        openNoteModal={openNoteModal}
+        getBcsNote={getBcsNote}
+        openBcsNoteModal={openBcsNoteModal}
         selfTotal={selfTotal}
-        reviewerTotals={reviewerTotals}
+        gvcnTotals={gvcnTotals}
       />
 
       {/* Bảng điểm Mobile */}
-      <ReviewerScoreCardsMobile
+      <GVCNScoreCardsMobile
         scoreData={scoreData}
         selfScores={selfScores}
         uploadedImages={selfImages}
         isEditing={isEditing}
         getItemKey={getItemKey}
-        calculateReviewerSectionScore={calculateReviewerSectionScore}
-        getReviewerDisplayScore={getReviewerDisplayScore}
-        handleReviewerScoreChange={handleReviewerScoreChange}
+        calculateGvcnSectionScore={calculateGvcnSectionScore}
+        getGvcnDisplayScore={getGvcnDisplayScore}
+        handleGvcnScoreChange={handleGvcnScoreChange}
         handleImageClick={(img) => setViewingImage(img)}
-        getNote={getNote}
-        openNoteModal={openNoteModal}
+        getBcsNote={getBcsNote}
+        openBcsNoteModal={openBcsNoteModal}
         selfTotal={selfTotal}
-        reviewerTotals={reviewerTotals}
+        gvcnTotals={gvcnTotals}
       />
 
-      {/* Buttons dưới cùng — tránh phải scroll lên */}
+      {/* Buttons dưới cùng */}
       <div className="flex justify-end">
         <ActionButtons
           isEditing={isEditing}
@@ -185,11 +187,11 @@ const StudentScoreDetail = () => {
         onCancel={handleCancelSave}
       />
 
-      {/* Ghi chú BCS Modal */}
-      {noteModalKey !== null && (
-        <GhiChuModal
-          initialText={getNote(noteModalKey)}
-          onSave={handleSaveNote}
+      {/* Modal xem ghi chú BCS — chỉ đọc */}
+      {isBcsNoteOpen && (
+        <GhiChuViewModal
+          title="Ghi chú của BCS"
+          text={getBcsNote(noteModalKey)}
           onClose={closeNoteModal}
         />
       )}
@@ -197,4 +199,4 @@ const StudentScoreDetail = () => {
   );
 };
 
-export default StudentScoreDetail;
+export default HomeroomStudentScoreDetail;

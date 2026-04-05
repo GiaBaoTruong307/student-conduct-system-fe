@@ -1,18 +1,19 @@
 import React from "react";
 
-const ReviewerScoreTableDesktop = ({
+const GVCNScoreTableDesktop = ({
   scoreData,
   selfScores = {},
   uploadedImages = {},
   isEditing,
   getItemKey,
-  calculateReviewerSectionScore,
-  getReviewerDisplayScore,
+  calculateGvcnSectionScore,
+  getGvcnDisplayScore,
+  handleGvcnScoreChange,
   handleImageClick,
-  getNote,
-  openNoteModal,
+  getBcsNote,
+  openBcsNoteModal,
   selfTotal,
-  reviewerTotals,
+  gvcnTotals,
 }) => {
   const getSelfSectionScore = (sectionIdx, section) => {
     if (!selfScores) return 0;
@@ -54,7 +55,7 @@ const ReviewerScoreTableDesktop = ({
                 Minh chứng kèm theo
               </th>
               <th className="px-4 py-3 text-center text-sm font-bold w-32">
-                Ghi chú của BCS
+                Ghi chú BCS
               </th>
             </tr>
           </thead>
@@ -72,8 +73,8 @@ const ReviewerScoreTableDesktop = ({
                   <td className="px-4 py-3 text-center font-bold border-r border-gray-300 text-[#3d2f6b]">
                     {getSelfSectionScore(sectionIdx, section)}
                   </td>
-                  <td className="px-4 py-3 text-center font-bold border-r border-gray-300 text-green-700">
-                    {calculateReviewerSectionScore(sectionIdx)}
+                  <td className="px-4 py-3 text-center font-bold border-r border-gray-300 text-emerald-700">
+                    {calculateGvcnSectionScore(sectionIdx)}
                   </td>
                   <td className="px-4 py-3 border-r border-gray-300"></td>
                   <td className="px-4 py-3"></td>
@@ -98,9 +99,9 @@ const ReviewerScoreTableDesktop = ({
                     {criterion.items.map((item, itemIdx) => {
                       const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
                       const images = (uploadedImages && uploadedImages[itemKey]) || [];
-                      const reviewerScore = getReviewerDisplayScore(itemKey);
+                      const gvcnScore = getGvcnDisplayScore(itemKey);
                       const selfScore = selfScores ? selfScores[itemKey] : undefined;
-                      const note = getNote(itemKey);
+                      const bcsNote = getBcsNote(itemKey);
 
                       return (
                         <tr key={itemKey} className="border-t border-gray-100">
@@ -122,18 +123,34 @@ const ReviewerScoreTableDesktop = ({
                             )}
                           </td>
 
-                          {/* Reviewer score — always read only (GVCN will fill this) */}
+                          {/* GVCN score — editable khi isEditing */}
                           <td className="px-4 py-2 text-center border-r border-gray-200">
                             {item.note ? (
                               <span className="text-gray-400 italic text-sm">-</span>
-                            ) : reviewerScore !== "" ? (
-                              <span className="font-medium text-green-700">{reviewerScore}</span>
+                            ) : isEditing ? (
+                              <input
+                                type="number"
+                                min="0"
+                                max={item.maxScore}
+                                value={gvcnScore}
+                                onChange={(e) =>
+                                  handleGvcnScoreChange(
+                                    itemKey,
+                                    e.target.value,
+                                    item.maxScore
+                                  )
+                                }
+                                className="w-16 px-2 py-1 border border-emerald-400 rounded text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                                placeholder="0"
+                              />
+                            ) : gvcnScore !== "" ? (
+                              <span className="font-medium text-emerald-700">{gvcnScore}</span>
                             ) : (
                               <span className="text-gray-400 text-sm">-</span>
                             )}
                           </td>
 
-                          {/* FIX: Minh chứng — hiện item.note thay vì "Không có" */}
+                          {/* Minh chứng */}
                           <td className="px-4 py-2 text-center border-r border-gray-200">
                             {item.note ? (
                               <span className="text-xs text-gray-400 italic">{item.note}</span>
@@ -165,24 +182,18 @@ const ReviewerScoreTableDesktop = ({
                             )}
                           </td>
 
-                          {/* BCS Note */}
+                          {/* Ghi chú BCS — chỉ xem */}
                           <td className="px-4 py-2 text-center">
-                            {!item.note &&
-                              (isEditing ? (
-                                <button
-                                  onClick={() => openNoteModal(itemKey)}
-                                  className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                                >
-                                  {note ? "Sửa" : "Thêm"}
-                                </button>
-                              ) : note ? (
-                                <button
-                                  onClick={() => openNoteModal(itemKey)}
-                                  className="text-xs text-[#3d2f6b] hover:underline cursor-pointer font-medium"
-                                >
-                                  Xem
-                                </button>
-                              ) : null)}
+                            {!item.note && bcsNote ? (
+                              <button
+                                onClick={() => openBcsNoteModal(itemKey)}
+                                className="text-xs text-blue-600 hover:underline cursor-pointer font-medium"
+                              >
+                                Xem
+                              </button>
+                            ) : !item.note ? (
+                              <span className="text-gray-300 text-xs">—</span>
+                            ) : null}
                           </td>
                         </tr>
                       );
@@ -195,9 +206,9 @@ const ReviewerScoreTableDesktop = ({
             {/* Tổng cộng */}
             <tr className="bg-gray-100 font-bold">
               <td className="px-4 py-3 text-left border-r border-gray-300">TỔNG CỘNG</td>
-              <td className="px-4 py-3 text-center border-r border-gray-300">{reviewerTotals.max}</td>
+              <td className="px-4 py-3 text-center border-r border-gray-300">{gvcnTotals.max}</td>
               <td className="px-4 py-3 text-center border-r border-gray-300 text-[#3d2f6b]">{selfTotal}</td>
-              <td className="px-4 py-3 text-center border-r border-gray-300 text-green-700">{reviewerTotals.reviewer}</td>
+              <td className="px-4 py-3 text-center border-r border-gray-300 text-emerald-700">{gvcnTotals.gvcn}</td>
               <td className="px-4 py-3 border-r border-gray-300"></td>
               <td className="px-4 py-3"></td>
             </tr>
@@ -208,4 +219,4 @@ const ReviewerScoreTableDesktop = ({
   );
 };
 
-export default ReviewerScoreTableDesktop;
+export default GVCNScoreTableDesktop;

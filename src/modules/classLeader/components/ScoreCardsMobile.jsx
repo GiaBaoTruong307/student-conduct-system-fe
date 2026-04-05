@@ -1,3 +1,4 @@
+// classLeader/components/ScoreCardsMobile.jsx
 const ScoreCardsMobile = ({
   scoreData,
   totals,
@@ -47,7 +48,6 @@ const ScoreCardsMobile = ({
                 key={`mobile-criterion-${sectionIdx}-${criterionIdx}`}
                 className="space-y-3"
               >
-                {/* Criterion Title */}
                 <div className="flex gap-2">
                   <span className="font-semibold text-gray-700 italic text-sm">
                     {criterion.id}
@@ -57,7 +57,6 @@ const ScoreCardsMobile = ({
                   </div>
                 </div>
 
-                {/* Items */}
                 {criterion.items.map((item, itemIdx) => {
                   const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
                   const currentImages = isEditing
@@ -70,13 +69,11 @@ const ScoreCardsMobile = ({
                       key={`mobile-item-${sectionIdx}-${criterionIdx}-${itemIdx}`}
                       className="pl-6 space-y-2 border-l-2 border-gray-200"
                     >
-                      {/* Description */}
                       <div className="text-sm text-gray-700 whitespace-pre-line">
                         <span className="mr-1">-</span>
                         {item.description}
                       </div>
 
-                      {/* Scores Grid */}
                       <div className="grid grid-cols-3 gap-2 text-xs bg-gray-50 p-2 rounded">
                         <div className="text-center">
                           <div className="text-gray-600">Tối đa</div>
@@ -116,7 +113,6 @@ const ScoreCardsMobile = ({
                         </div>
                       </div>
 
-                      {/* Proof/Note */}
                       {item.note ? (
                         <div className="text-xs text-gray-500 italic">{item.note}</div>
                       ) : (
@@ -143,7 +139,6 @@ const ScoreCardsMobile = ({
                                       alt={`Preview ${imgIdx + 1}`}
                                       className="w-16 h-16 object-cover rounded border border-gray-300 hover:opacity-80 transition-opacity"
                                     />
-                                    {/* Badge edit khi đang sửa */}
                                     {isEditing && (
                                       <div className="absolute inset-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 pointer-events-none">
                                         <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -183,7 +178,7 @@ const ScoreCardsMobile = ({
         </div>
       ))}
 
-      {/* Tổng cộng - Mobile */}
+      {/* Tổng cộng */}
       <div className="bg-gray-100 rounded-lg shadow-sm border border-gray-200 p-4">
         <h3 className="font-bold text-gray-800 mb-3">TỔNG CỘNG</h3>
         <div className="grid grid-cols-3 gap-2 text-sm">

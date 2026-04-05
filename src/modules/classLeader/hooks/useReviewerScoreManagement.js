@@ -105,8 +105,8 @@ export const useReviewerScoreManagement = (scoreData, mssv) => {
   const handleCancelSave = () => setShowConfirmModal(false);
 
   const hasAnySavedData = () =>
-    Object.values(savedReviewerScores).some(
-      (s) => s !== "" && s !== undefined && s !== null
+    Object.values(savedNotes).some(
+      (n) => n !== "" && n !== undefined && n !== null
     );
 
   const calculateReviewerTotals = () => {
