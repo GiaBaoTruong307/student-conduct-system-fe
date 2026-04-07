@@ -83,18 +83,21 @@ const GVCNScoreTableDesktop = ({
                 {/* Criteria */}
                 {section.criteria.map((criterion, criterionIdx) => (
                   <React.Fragment key={criterionIdx}>
-                    <tr className="border-t border-gray-200 bg-white">
-                      <td colSpan={6} className="px-4 py-2 border-r border-gray-300">
-                        <div className="flex gap-3">
-                          <span className="font-semibold text-gray-700 flex-shrink-0 italic">
-                            {criterion.id}
-                          </span>
-                          <div className="text-sm text-gray-800 font-medium">
-                            {criterion.title}
+                    {/* Criterion Title Row — chỉ render khi có title */}
+                    {criterion.title && (
+                      <tr className="border-t border-gray-200 bg-white">
+                        <td colSpan={6} className="px-4 py-2 border-r border-gray-300">
+                          <div className="flex gap-3">
+                            <span className="font-semibold text-gray-700 flex-shrink-0 italic">
+                              {criterion.id}
+                            </span>
+                            <div className="text-sm text-gray-800 font-medium">
+                              {criterion.title}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                    )}
 
                     {criterion.items.map((item, itemIdx) => {
                       const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
@@ -106,6 +109,12 @@ const GVCNScoreTableDesktop = ({
                       return (
                         <tr key={itemKey} className="border-t border-gray-100">
                           <td className="px-4 py-2 border-r border-gray-200 text-sm whitespace-pre-line">
+                            {/* Khi không có criterion title → prefix chữ cái vào dòng item */}
+                            {!criterion.title && criterion.id && (
+                              <span className="font-semibold italic text-gray-500 mr-2">
+                                {criterion.id}
+                              </span>
+                            )}
                             {item.description}
                           </td>
                           <td className="px-4 py-2 text-center border-r border-gray-200 text-sm">

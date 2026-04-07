@@ -48,14 +48,17 @@ const ScoreCardsMobile = ({
                 key={`mobile-criterion-${sectionIdx}-${criterionIdx}`}
                 className="space-y-3"
               >
-                <div className="flex gap-2">
-                  <span className="font-semibold text-gray-700 italic text-sm">
-                    {criterion.id}
-                  </span>
-                  <div className="text-sm text-gray-800 font-medium">
-                    {criterion.title}
+                {/* Criterion Title — chỉ render khi có title */}
+                {criterion.title && (
+                  <div className="flex gap-2">
+                    <span className="font-semibold text-gray-700 italic text-sm">
+                      {criterion.id}
+                    </span>
+                    <div className="text-sm text-gray-800 font-medium">
+                      {criterion.title}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {criterion.items.map((item, itemIdx) => {
                   const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
@@ -70,7 +73,12 @@ const ScoreCardsMobile = ({
                       className="pl-6 space-y-2 border-l-2 border-gray-200"
                     >
                       <div className="text-sm text-gray-700 whitespace-pre-line">
-                        <span className="mr-1">-</span>
+                        {/* Khi không có criterion title → prefix chữ cái vào dòng item */}
+                        {!criterion.title && criterion.id && (
+                          <span className="font-semibold italic text-gray-500 mr-1">
+                            {criterion.id}
+                          </span>
+                        )}
                         {item.description}
                       </div>
 
@@ -166,6 +174,10 @@ const ScoreCardsMobile = ({
                                 </div>
                               ))}
                             </div>
+                          )}
+
+                          {!isEditing && currentImages.length === 0 && (
+                            <span className="text-xs text-gray-400 italic">Không có</span>
                           )}
                         </div>
                       )}

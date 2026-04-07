@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { classMembers } from "../../classLeader/constants/classMembers";
-import { scoreData } from "../../classLeader/constants/scoreData";
 import { useScoreContext } from "../../../context/ScoreContext";
 import GVCNScoreTableDesktop from "../components/GVCNScoreTableDesktop";
 import GVCNScoreCardsMobile from "../components/GVCNScoreCardsMobile";
@@ -9,48 +8,153 @@ import GhiChuViewModal from "../components/GhiChuViewModal";
 import ImageViewer from "../../classLeader/components/ImageViewer";
 import ConfirmModal from "../../classLeader/components/ConfirmModal";
 import { useGVCNScoreManagement } from "../hooks/Usegvcnscoremanagement";
+import { useTimeWindow } from "../../../hooks/useTimeWindow";
 
-const ActionButtons = ({ isEditing, hasAnySavedData, onBack, onSave, onStartScoring }) => (
-  <div className="flex gap-3 flex-wrap">
-    <button
-      onClick={onBack}
-      className="px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors cursor-pointer text-sm"
-    >
-      ← Quay lại
-    </button>
-    {isEditing ? (
+const ADMIN_LS_KEYS = {
+  YEARS: "admin_academic_years",
+  SEMESTERS: "admin_academic_semesters",
+  CRITERIA: "admin_criteria_sections",
+};
+
+const BCS_SUBMITTED_KEY = "bcsSubmittedPeriods";
+
+const readLS = (key, def) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw !== null ? JSON.parse(raw) : def;
+  } catch {
+    return def;
+  }
+};
+
+const transformToScoreData = (adminSections) =>
+  [...adminSections]
+    .sort((a, b) => {
+      if (a.number && b.number) return a.number - b.number;
+      if (a.number) return -1;
+      if (b.number) return 1;
+      return 0;
+    })
+    .map((sec) => {
+      const criteria = (sec.criteria || []).map((cr, idx) => ({
+        id: String.fromCharCode(97 + idx),
+        title: "",
+        items: [
+          {
+            description: cr.content,
+            maxScore: cr.maxScore,
+            selfScore: 0,
+            reviewerScore: 0,
+            proof: "Tải minh chứng lên",
+            note: cr.isAutoUpdate
+              ? "Hệ thống của trường sẽ tự động cập nhật"
+              : undefined,
+          },
+        ],
+      }));
+
+      const maxScore = (sec.criteria || []).reduce(
+        (s, c) => s + (c.maxScore || 0),
+        0
+      );
+
+      return {
+        section: sec.number ? `Điều ${sec.number}. ${sec.name}` : sec.name,
+        maxScore,
+        selfScore: 0,
+        reviewerScore: 0,
+        criteria,
+      };
+    });
+
+const ActionButtons = ({ isEditing, hasAnySavedData, onBack, onSave, onStartScoring, timeWindow }) => {
+  const blocked = timeWindow && !timeWindow.canEdit;
+
+  const renderBadge = () => {
+    const { status, startTime, endTime } = timeWindow;
+    if (status === "no-setting") {
+      return (
+        <div className="flex flex-col items-start gap-0.5 px-4 py-2 rounded-lg border text-sm bg-gray-50 border-gray-300">
+          <span className="font-semibold text-gray-600">Chưa có thời gian chấm được thiết lập</span>
+          <span className="text-xs text-gray-400">Vui lòng chờ admin cài đặt thời gian</span>
+        </div>
+      );
+    }
+    if (status === "before") {
+      return (
+        <div className="flex flex-col items-start gap-0.5 px-4 py-2 rounded-lg border text-sm bg-amber-50 border-amber-200">
+          <span className="font-semibold text-amber-700">Chưa tới thời gian chấm</span>
+          {startTime && <span className="text-xs text-amber-600">Bắt đầu từ: {startTime}</span>}
+        </div>
+      );
+    }
+    if (status === "after") {
+      return (
+        <div className="flex flex-col items-start gap-0.5 px-4 py-2 rounded-lg border text-sm bg-red-50 border-red-200">
+          <span className="font-semibold text-red-700">Đã hết thời gian chấm</span>
+          {endTime && <span className="text-xs text-red-500">Kết thúc lúc: {endTime}</span>}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <div className="flex gap-3 flex-wrap items-center">
       <button
-        onClick={onSave}
-        className="px-5 py-2.5 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors cursor-pointer text-sm"
+        onClick={onBack}
+        className="px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors cursor-pointer text-sm"
       >
-        Lưu
+        ← Quay lại
       </button>
-    ) : hasAnySavedData ? (
-      <button
-        onClick={onStartScoring}
-        className="px-5 py-2.5 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors cursor-pointer text-sm"
-      >
-        Sửa
-      </button>
-    ) : (
-      <button
-        onClick={onStartScoring}
-        className="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer text-sm"
-      >
-        Chấm
-      </button>
-    )}
-  </div>
-);
+
+      {isEditing ? (
+        <button
+          onClick={onSave}
+          className="px-5 py-2.5 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors cursor-pointer text-sm"
+        >
+          Lưu
+        </button>
+      ) : blocked ? (
+        renderBadge()
+      ) : hasAnySavedData ? (
+        <button
+          onClick={onStartScoring}
+          className="px-5 py-2.5 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors cursor-pointer text-sm"
+        >
+          Sửa
+        </button>
+      ) : (
+        <button
+          onClick={onStartScoring}
+          className="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-lg hover:bg-emerald-700 transition-colors cursor-pointer text-sm"
+        >
+          Chấm
+        </button>
+      )}
+    </div>
+  );
+};
 
 const HomeroomStudentScoreDetail = () => {
   const { mssv } = useParams();
-  const navigate = useNavigate();
-  const {
-    studentSavedScores,
-    studentSelfTotal,
-    studentUploadedImages,
-  } = useScoreContext();
+  const navigate  = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const yearId = searchParams.get("yearId") ?? "";
+  const semId  = searchParams.get("semId")  ?? "";
+
+  const allYears      = readLS(ADMIN_LS_KEYS.YEARS, []);
+  const allSemesters  = readLS(ADMIN_LS_KEYS.SEMESTERS, {});
+  const adminCriteria = readLS(ADMIN_LS_KEYS.CRITERIA, []);
+
+  const selectedYear     = allYears.find((y) => y.id === yearId) ?? null;
+  const yearSemesters    = yearId ? (allSemesters[yearId] ?? []) : [];
+  const selectedSemester = yearSemesters.find((s) => s.id === semId) ?? null;
+
+  const scoreData = transformToScoreData(adminCriteria);
+
+  const { studentSavedScores, studentSelfTotal, studentUploadedImages } = useScoreContext();
 
   const member = classMembers.find((m) => m.mssv === mssv);
 
@@ -74,6 +178,20 @@ const HomeroomStudentScoreDetail = () => {
     getBcsNote,
   } = useGVCNScoreManagement(scoreData, mssv);
 
+  const timeWindow = useTimeWindow(yearId, semId, "teacher");
+
+  // Kiểm tra BCS đã gửi duyệt cho kỳ học này chưa
+  const periodKey   = yearId && semId ? `${yearId}_${semId}` : null;
+  const bcsSubmitted = periodKey
+    ? readLS(BCS_SUBMITTED_KEY, []).includes(periodKey)
+    : false;
+
+  // GVCN chỉ thấy ghi chú BCS sau khi BCS đã gửi duyệt
+  const getVisibleBcsNote = (itemKey) => {
+    if (!bcsSubmitted) return "";
+    return getBcsNote(itemKey);
+  };
+
   const [viewingImage, setViewingImage] = useState(null);
 
   if (!member) {
@@ -92,11 +210,11 @@ const HomeroomStudentScoreDetail = () => {
 
   const selfScores = member.isLinkedToStudent ? (studentSavedScores || {}) : {};
   const selfImages = member.isLinkedToStudent ? (studentUploadedImages || {}) : {};
-  const selfTotal = member.isLinkedToStudent ? studentSelfTotal : 0;
+  const selfTotal  = member.isLinkedToStudent ? studentSelfTotal : 0;
 
   const gvcnTotals = calculateGvcnTotals();
-  const savedData = hasAnySavedData();
-  const goBack = () => navigate("/homeroom-teacher/class-score");
+  const savedData  = hasAnySavedData();
+  const goBack     = () => navigate("/homeroom-teacher/class-score");
 
   const isBcsNoteOpen = noteModalKey !== null && noteModalOwner === "bcs";
 
@@ -116,6 +234,12 @@ const HomeroomStudentScoreDetail = () => {
               <div className="text-sm text-gray-500">
                 MSSV: {member.mssv} · Ngày sinh: {member.ngaySinh}
               </div>
+              {(selectedSemester || selectedYear) && (
+                <div className="text-xs text-emerald-700 font-medium mt-0.5">
+                  {selectedSemester?.name && `${selectedSemester.name} · `}
+                  {selectedYear?.name && `Năm học ${selectedYear.name}`}
+                </div>
+              )}
             </div>
           </div>
 
@@ -125,8 +249,18 @@ const HomeroomStudentScoreDetail = () => {
             onBack={goBack}
             onSave={handleSave}
             onStartScoring={handleStartScoring}
+            timeWindow={timeWindow}
           />
         </div>
+
+        {/* Thông báo khi BCS chưa gửi duyệt */}
+        {!bcsSubmitted && (
+          <div className="mt-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+            <span className="text-sm text-amber-700">
+              Ban cán sự chưa gửi duyệt kết quả — ghi chú của BCS sẽ hiển thị sau khi BCS xác nhận gửi duyệt.
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Bảng điểm Desktop */}
@@ -140,7 +274,7 @@ const HomeroomStudentScoreDetail = () => {
         getGvcnDisplayScore={getGvcnDisplayScore}
         handleGvcnScoreChange={handleGvcnScoreChange}
         handleImageClick={(img) => setViewingImage(img)}
-        getBcsNote={getBcsNote}
+        getBcsNote={getVisibleBcsNote}
         openBcsNoteModal={openBcsNoteModal}
         selfTotal={selfTotal}
         gvcnTotals={gvcnTotals}
@@ -157,7 +291,7 @@ const HomeroomStudentScoreDetail = () => {
         getGvcnDisplayScore={getGvcnDisplayScore}
         handleGvcnScoreChange={handleGvcnScoreChange}
         handleImageClick={(img) => setViewingImage(img)}
-        getBcsNote={getBcsNote}
+        getBcsNote={getVisibleBcsNote}
         openBcsNoteModal={openBcsNoteModal}
         selfTotal={selfTotal}
         gvcnTotals={gvcnTotals}
@@ -171,27 +305,25 @@ const HomeroomStudentScoreDetail = () => {
           onBack={goBack}
           onSave={handleSave}
           onStartScoring={handleStartScoring}
+          timeWindow={timeWindow}
         />
       </div>
 
-      {/* Image Viewer */}
       <ImageViewer
         imageUrl={viewingImage}
         onClose={() => setViewingImage(null)}
       />
 
-      {/* Confirm Save Modal */}
       <ConfirmModal
         isOpen={showConfirmModal}
         onConfirm={handleConfirmSave}
         onCancel={handleCancelSave}
       />
 
-      {/* Modal xem ghi chú BCS — chỉ đọc */}
       {isBcsNoteOpen && (
         <GhiChuViewModal
           title="Ghi chú của BCS"
-          text={getBcsNote(noteModalKey)}
+          text={getVisibleBcsNote(noteModalKey)}
           onClose={closeNoteModal}
         />
       )}

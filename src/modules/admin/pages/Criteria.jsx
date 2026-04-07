@@ -9,6 +9,7 @@ const PreviewModal = ({ sections, onClose }) => {
   const totalMax = sections.reduce(
     (sum, s) => sum + (s.criteria || []).reduce((cs, c) => cs + (c.maxScore || 0), 0), 0
   );
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
@@ -23,6 +24,7 @@ const PreviewModal = ({ sections, onClose }) => {
             </svg>
           </button>
         </div>
+
         <div className="overflow-auto flex-1 p-4">
           {sections.length === 0 ? (
             <div className="text-center py-16 text-gray-400">Chưa có điều mục nào để xem trước</div>
@@ -33,8 +35,8 @@ const PreviewModal = ({ sections, onClose }) => {
                   <th className="px-4 py-3 text-left font-bold border border-gray-300">NỘI DUNG VÀ TIÊU CHÍ ĐÁNH GIÁ</th>
                   <th className="px-4 py-3 text-center font-bold border border-gray-300 w-24">Điểm tối đa</th>
                   <th className="px-4 py-3 text-center font-bold border border-gray-300 w-28">Điểm SV tự đánh giá</th>
-                  <th className="px-4 py-3 text-center font-bold border border-gray-300 w-28">Điểm BCS đánh giá</th>
-                  <th className="px-4 py-3 text-center font-bold border border-gray-300 w-32">Minh chứng</th>
+                  <th className="px-4 py-3 text-center font-bold border border-gray-300 w-28">Điểm GVCN đánh giá</th>
+                  <th className="px-4 py-3 text-center font-bold border border-gray-300 w-44">Minh chứng</th>
                 </tr>
               </thead>
               <tbody>
@@ -53,16 +55,54 @@ const PreviewModal = ({ sections, onClose }) => {
                         <td className="px-4 py-2 border border-gray-300"></td>
                       </tr>
                       {(sec.criteria || []).map((cr, ci) => (
-                        <tr key={cr.id}>
+                        <tr key={cr.id} className={cr.isAutoUpdate ? "bg-blue-50/40" : ""}>
                           <td className="px-4 py-2 border border-gray-200 whitespace-pre-line text-gray-700">
                             <span className="font-semibold italic mr-2 text-gray-500">{String.fromCharCode(97 + ci)}.</span>
                             {cr.content}
                             {cr.note && <div className="text-xs text-gray-400 mt-0.5 italic">({cr.note})</div>}
                           </td>
                           <td className="px-4 py-2 text-center border border-gray-200">{cr.maxScore}</td>
-                          <td className="px-4 py-2 text-center border border-gray-200 text-gray-400">-</td>
-                          <td className="px-4 py-2 text-center border border-gray-200 text-gray-400">-</td>
-                          <td className="px-4 py-2 text-center border border-gray-200 text-xs text-blue-500">Tải minh chứng</td>
+
+                          {/* Cột điểm SV */}
+                          <td className="px-4 py-2 text-center border border-gray-200">
+                            {cr.isAutoUpdate ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-gray-400 italic">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                                Tự động
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+
+                          {/* Cột điểm GVCN */}
+                          <td className="px-4 py-2 text-center border border-gray-200">
+                            {cr.isAutoUpdate ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-gray-400 italic">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                                Tự động
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+
+                          {/* Cột minh chứng */}
+                          <td className="px-4 py-2 text-center border border-gray-200 text-xs">
+                            {cr.isAutoUpdate ? (
+                              <span className="text-blue-500 italic">
+                                Hệ thống của trường sẽ tự động cập nhật
+                              </span>
+                            ) : (
+                              <span className="text-blue-500">Tải minh chứng</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </>
@@ -79,6 +119,7 @@ const PreviewModal = ({ sections, onClose }) => {
             </table>
           )}
         </div>
+
         <div className="px-6 py-4 border-t border-gray-100 shrink-0 flex justify-end">
           <button onClick={onClose} className="px-5 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer transition-colors">Đóng</button>
         </div>
@@ -114,8 +155,8 @@ const SectionForm = ({ initial, usedNumbers, onNext, onSaveDirect, onCancel, gen
   const isEdit = !!initial?.id;
   const [form, setForm] = useState({
     number: initial?.number ?? "",
-    name: initial?.name ?? "",
-    note: initial?.note ?? "",
+    name:   initial?.name ?? "",
+    note:   initial?.note ?? "",
   });
   const [err, setErr] = useState("");
   const set = (f) => (e) => setForm((p) => ({ ...p, [f]: e.target.value }));
@@ -185,8 +226,8 @@ const SectionForm = ({ initial, usedNumbers, onNext, onSaveDirect, onCancel, gen
 const CriteriaForm = ({ section, onBack, onSave, genId }) => {
   const [rows, setRows] = useState(() =>
     (section.criteria || []).length > 0
-      ? section.criteria.map((c) => ({ ...c }))
-      : [{ id: genId(), content: "", note: "", maxScore: "" }]
+      ? section.criteria.map((c) => ({ ...c, isAutoUpdate: c.isAutoUpdate ?? false }))
+      : [{ id: genId(), content: "", note: "", maxScore: "", isAutoUpdate: false }]
   );
   const [err, setErr] = useState("");
 
@@ -218,9 +259,22 @@ const CriteriaForm = ({ section, onBack, onSave, genId }) => {
 
       <div className="flex-1 overflow-y-auto space-y-3 pr-1 min-h-0">
         {rows.map((row, idx) => (
-          <div key={row.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50/50">
+          <div key={row.id} className={`border rounded-xl p-4 transition-colors ${row.isAutoUpdate ? "border-blue-200 bg-blue-50/30" : "border-gray-200 bg-gray-50/50"}`}>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tiêu chí {String.fromCharCode(97 + idx)}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Tiêu chí {String.fromCharCode(97 + idx)}
+                </span>
+                {row.isAutoUpdate && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-600 text-xs rounded-full font-medium">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Hệ thống tự cập nhật
+                  </span>
+                )}
+              </div>
               {rows.length > 1 && (
                 <button onClick={() => setRows((prev) => prev.filter((_, i) => i !== idx))}
                   className="text-red-400 hover:text-red-600 p-1 rounded-lg hover:bg-red-50 transition-colors cursor-pointer">
@@ -230,10 +284,12 @@ const CriteriaForm = ({ section, onBack, onSave, genId }) => {
                 </button>
               )}
             </div>
+
             <div className="space-y-3">
               <textarea rows={3} value={row.content} onChange={(e) => setRow(idx, "content", e.target.value)}
                 placeholder="Nhập nội dung tiêu chí đánh giá..."
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] resize-none bg-white" />
+
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Điểm tối đa <span className="text-red-500">*</span></label>
@@ -246,6 +302,24 @@ const CriteriaForm = ({ section, onBack, onSave, genId }) => {
                     placeholder="Ghi chú (tùy chọn)" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] bg-white" />
                 </div>
               </div>
+
+              {/* Checkbox hệ thống tự động cập nhật */}
+              <label className="flex items-start gap-2.5 cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  checked={row.isAutoUpdate}
+                  onChange={(e) => setRow(idx, "isAutoUpdate", e.target.checked)}
+                  className="w-4 h-4 mt-0.5 accent-blue-500 cursor-pointer shrink-0"
+                />
+                <div>
+                  <span className="text-xs font-medium text-gray-700 group-hover:text-blue-600 transition-colors">
+                    Hệ thống của trường sẽ tự động cập nhật
+                  </span>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Sinh viên và GVCN sẽ không thể nhập điểm cho tiêu chí này. Điểm sẽ do hệ thống tự điền.
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
         ))}
@@ -264,7 +338,7 @@ const CriteriaForm = ({ section, onBack, onSave, genId }) => {
             Quay lại
           </button>
           <div className="flex gap-3">
-            <button onClick={() => setRows((prev) => [...prev, { id: genId(), content: "", note: "", maxScore: "" }])}
+            <button onClick={() => setRows((prev) => [...prev, { id: genId(), content: "", note: "", maxScore: "", isAutoUpdate: false }])}
               className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-[#3d2f6b] bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg cursor-pointer transition-colors">
               <IconPlus /> Thêm tiêu chí
             </button>
@@ -283,7 +357,7 @@ const CriteriaForm = ({ section, onBack, onSave, genId }) => {
 
 const SectionCard = ({ section, index, onEdit, onDelete, onManageCriteria }) => {
   const [open, setOpen] = useState(false);
-  const secScore = (section.criteria || []).reduce((s, c) => s + (c.maxScore || 0), 0);
+  const secScore     = (section.criteria || []).reduce((s, c) => s + (c.maxScore || 0), 0);
   const criteriaCount = (section.criteria || []).length;
 
   return (
@@ -313,6 +387,7 @@ const SectionCard = ({ section, index, onEdit, onDelete, onManageCriteria }) => 
           </button>
         </div>
       </div>
+
       {open && (
         <div className="divide-y divide-gray-50">
           {criteriaCount === 0 ? (
@@ -322,13 +397,22 @@ const SectionCard = ({ section, index, onEdit, onDelete, onManageCriteria }) => 
                 className="mt-2 text-xs text-[#3d2f6b] hover:underline cursor-pointer font-medium">+ Thêm tiêu chí ngay</button>
             </div>
           ) : (section.criteria || []).map((cr, ci) => (
-            <div key={cr.id} className="flex items-start gap-3 px-4 py-3">
+            <div key={cr.id} className={`flex items-start gap-3 px-4 py-3 ${cr.isAutoUpdate ? "bg-blue-50/30" : ""}`}>
               <span className="w-5 h-5 rounded-full bg-purple-100 text-[#3d2f6b] text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                 {String.fromCharCode(97 + ci)}
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-700 whitespace-pre-line">{cr.content}</p>
                 {cr.note && <p className="text-xs text-gray-400 mt-1 italic">({cr.note})</p>}
+                {cr.isAutoUpdate && (
+                  <div className="flex items-center gap-1 mt-1.5">
+                    <svg className="w-3 h-3 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className="text-xs text-blue-500 italic">Hệ thống của trường sẽ tự động cập nhật</span>
+                  </div>
+                )}
               </div>
               <span className="shrink-0 text-xs font-semibold text-[#3d2f6b] bg-purple-50 px-2 py-0.5 rounded-full">{cr.maxScore} điểm</span>
             </div>

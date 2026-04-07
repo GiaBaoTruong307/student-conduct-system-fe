@@ -47,15 +47,17 @@ const ScoreCardsMobile = ({
                 key={`mobile-criterion-${sectionIdx}-${criterionIdx}`}
                 className="space-y-3"
               >
-                {/* Criterion Title */}
-                <div className="flex gap-2">
-                  <span className="font-semibold text-gray-700 italic text-sm">
-                    {criterion.id}
-                  </span>
-                  <div className="text-sm text-gray-800 font-medium">
-                    {criterion.title}
+                {/* Criterion Title — chỉ render khi có title */}
+                {criterion.title && (
+                  <div className="flex gap-2">
+                    <span className="font-semibold text-gray-700 italic text-sm">
+                      {criterion.id}
+                    </span>
+                    <div className="text-sm text-gray-800 font-medium">
+                      {criterion.title}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Items */}
                 {criterion.items.map((item, itemIdx) => {
@@ -72,7 +74,12 @@ const ScoreCardsMobile = ({
                     >
                       {/* Description */}
                       <div className="text-sm text-gray-700 whitespace-pre-line">
-                        <span className="mr-1">-</span>
+                        {/* Khi không có criterion title → prefix chữ cái vào dòng item */}
+                        {!criterion.title && criterion.id && (
+                          <span className="font-semibold italic text-gray-500 mr-1">
+                            {criterion.id}
+                          </span>
+                        )}
                         {item.description}
                       </div>
 
@@ -143,7 +150,6 @@ const ScoreCardsMobile = ({
                                       alt={`Preview ${imgIdx + 1}`}
                                       className="w-16 h-16 object-cover rounded border border-gray-300 hover:opacity-80 transition-opacity"
                                     />
-                                    {/* Badge edit khi đang sửa */}
                                     {isEditing && (
                                       <div className="absolute inset-0 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 pointer-events-none">
                                         <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -171,6 +177,10 @@ const ScoreCardsMobile = ({
                                 </div>
                               ))}
                             </div>
+                          )}
+
+                          {!isEditing && currentImages.length === 0 && (
+                            <span className="text-xs text-gray-400 italic">Không có</span>
                           )}
                         </div>
                       )}

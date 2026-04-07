@@ -8,9 +8,7 @@ const fileToBase64 = (file) =>
     reader.readAsDataURL(file);
   });
 
-export const useScoreManagement = (scoreData) => {
-  const [selectedSemester, setSelectedSemester] = useState("Kỳ II");
-  const [selectedYear, setSelectedYear] = useState("2025-2026");
+export const useScoreManagement = (scoreData, hasDataForCurrentPeriod = false) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [uploadedImages, setUploadedImages] = useState({});
@@ -32,14 +30,12 @@ export const useScoreManagement = (scoreData) => {
     };
   }, [showConfirmModal, viewingImage, modalItemKey, editingImage]);
 
-  const hasDataForCurrentPeriod =
-    selectedSemester === "Kỳ II" && selectedYear === "2025-2026";
-
   const getItemKey = (sectionIdx, criterionIdx, itemIdx) =>
     `${sectionIdx}-${criterionIdx}-${itemIdx}`;
 
   const calculateSectionScore = (sectionIdx) => {
     const section = scoreData[sectionIdx];
+    if (!section) return 0;
     let total = 0;
     section.criteria.forEach((criterion, criterionIdx) => {
       criterion.items.forEach((item, itemIdx) => {
@@ -71,10 +67,7 @@ export const useScoreManagement = (scoreData) => {
     const url = await fileToBase64(file);
     setTempImages((prev) => ({
       ...prev,
-      [modalItemKey]: [
-        ...(prev[modalItemKey] || []),
-        { url, description, date },
-      ],
+      [modalItemKey]: [...(prev[modalItemKey] || []), { url, description, date }],
     }));
     setModalItemKey(null);
   };
@@ -106,17 +99,12 @@ export const useScoreManagement = (scoreData) => {
   };
 
   const closeImageViewer = () => setViewingImage(null);
-
   const handleSave = () => setShowConfirmModal(true);
 
   const handleConfirmSave = () => {
     const filteredScores = {};
     Object.keys(tempScores).forEach((key) => {
-      if (
-        tempScores[key] !== "" &&
-        tempScores[key] !== undefined &&
-        tempScores[key] !== null
-      ) {
+      if (tempScores[key] !== "" && tempScores[key] !== undefined && tempScores[key] !== null) {
         filteredScores[key] = tempScores[key];
       }
     });
@@ -167,19 +155,13 @@ export const useScoreManagement = (scoreData) => {
 
   const calculateTotals = () => {
     return scoreData.reduce(
-      (acc, section) => {
-        section.criteria.forEach((criterion) => {
+      (acc, section, sectionIdx) => {
+        section.criteria.forEach((criterion, criterionIdx) => {
           (criterion.items || []).forEach((item, itemIdx) => {
-            const sectionIdx = scoreData.indexOf(section);
-            const criterionIdx = section.criteria.indexOf(criterion);
             const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
             acc.max += Number(item.maxScore || 0);
             const savedScore = savedScores[itemKey];
-            if (
-              savedScore !== undefined &&
-              savedScore !== "" &&
-              savedScore !== null
-            ) {
+            if (savedScore !== undefined && savedScore !== "" && savedScore !== null) {
               acc.self += Number(savedScore);
             }
             acc.reviewer += Number(item.reviewerScore ?? 0);
@@ -192,8 +174,6 @@ export const useScoreManagement = (scoreData) => {
   };
 
   return {
-    selectedSemester,
-    selectedYear,
     isEditing,
     showConfirmModal,
     uploadedImages,
@@ -205,8 +185,6 @@ export const useScoreManagement = (scoreData) => {
     setModalItemKey,
     editingImage,
     setEditingImage,
-    setSelectedSemester,
-    setSelectedYear,
     handleScoreChange,
     handleRemoveTempImage,
     handleUploadClick,

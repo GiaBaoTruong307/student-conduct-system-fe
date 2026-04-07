@@ -34,14 +34,12 @@ export const useGVCNScoreManagement = (scoreData, mssv) => {
   const [savedGvcnScores, setSavedGvcnScores] = useState(existing.savedScores || {});
   const [tempGvcnScores, setTempGvcnScores] = useState({});
 
-  // Note modal — chỉ dùng để xem ghi chú BCS (read-only)
   const [noteModalKey, setNoteModalKey] = useState(null);
   const [noteModalOwner, setNoteModalOwner] = useState(null);
 
   const getItemKey = (sectionIdx, criterionIdx, itemIdx) =>
     `${sectionIdx}-${criterionIdx}-${itemIdx}`;
 
-  // Đọc điểm & ghi chú của BCS từ context (chỉ đọc)
   const getBcsScore = (itemKey) => {
     const data = reviewerScoresByMssv[mssv];
     if (!data) return "";
@@ -58,6 +56,7 @@ export const useGVCNScoreManagement = (scoreData, mssv) => {
 
   const calculateGvcnSectionScore = (sectionIdx) => {
     const section = scoreData[sectionIdx];
+    if (!section) return 0;
     let total = 0;
     section.criteria.forEach((criterion, criterionIdx) => {
       criterion.items.forEach((item, itemIdx) => {
@@ -132,11 +131,9 @@ export const useGVCNScoreManagement = (scoreData, mssv) => {
 
   const calculateGvcnTotals = () => {
     return scoreData.reduce(
-      (acc, section) => {
-        section.criteria.forEach((criterion) => {
+      (acc, section, sectionIdx) => {
+        section.criteria.forEach((criterion, criterionIdx) => {
           criterion.items.forEach((item, itemIdx) => {
-            const sectionIdx = scoreData.indexOf(section);
-            const criterionIdx = section.criteria.indexOf(criterion);
             const key = getItemKey(sectionIdx, criterionIdx, itemIdx);
             acc.max += Number(item.maxScore || 0);
             const s = savedGvcnScores[key];

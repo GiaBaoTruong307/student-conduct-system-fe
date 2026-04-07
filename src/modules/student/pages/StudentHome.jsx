@@ -1,4 +1,4 @@
-import { scoreData } from "../constants/scoreData";
+import { useState } from "react";
 import { useScoreManagement } from "../hooks/useScoreManagement";
 import EmptyState from "../components/EmptyState";
 import ScoreFilter from "../components/ScoreFilter";
@@ -8,23 +8,97 @@ import ScoreCardsMobile from "../components/ScoreCardsMobile";
 import ImageViewer from "../components/ImageViewer";
 import ConfirmModal from "../components/ConfirmModal";
 import MinhChungModal from "../components/MinhChungModal";
+import { useTimeWindow } from "../../../hooks/useTimeWindow";
+
+const LS_KEYS = {
+  YEARS: "admin_academic_years",
+  SEMESTERS: "admin_academic_semesters",
+  CRITERIA: "admin_criteria_sections",
+};
+
+const readLS = (key, def) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : def;
+  } catch {
+    return def;
+  }
+};
+
+const transformToScoreData = (adminSections) =>
+  [...adminSections]
+    .sort((a, b) => {
+      if (a.number && b.number) return a.number - b.number;
+      if (a.number) return -1;
+      if (b.number) return 1;
+      return 0;
+    })
+    .map((sec) => {
+      const criteria = (sec.criteria || []).map((cr, idx) => ({
+        id: String.fromCharCode(97 + idx),
+        title: "",
+        items: [
+          {
+            description: cr.content,
+            maxScore: cr.maxScore,
+            selfScore: 0,
+            reviewerScore: 0,
+            proof: "Tải minh chứng lên",
+            note: cr.isAutoUpdate
+              ? "Hệ thống của trường sẽ tự động cập nhật"
+              : undefined,
+          },
+        ],
+      }));
+
+      const maxScore = (sec.criteria || []).reduce(
+        (s, c) => s + (c.maxScore || 0),
+        0
+      );
+
+      return {
+        section: sec.number ? `Điều ${sec.number}. ${sec.name}` : sec.name,
+        maxScore,
+        selfScore: 0,
+        reviewerScore: 0,
+        criteria,
+      };
+    });
 
 const StudentHome = () => {
+  const allYears = readLS(LS_KEYS.YEARS, []);
+  const allSemesters = readLS(LS_KEYS.SEMESTERS, {});
+  const adminCriteria = readLS(LS_KEYS.CRITERIA, []);
+
+  const [selectedYearId, setSelectedYearId] = useState("");
+  const [selectedSemesterId, setSelectedSemesterId] = useState("");
+
+  const selectedYear = allYears.find((y) => y.id === selectedYearId) ?? null;
+  const semesters = selectedYearId ? (allSemesters[selectedYearId] ?? []) : [];
+  const selectedSemester = semesters.find((s) => s.id === selectedSemesterId) ?? null;
+
+  const scoreData = transformToScoreData(adminCriteria);
+
+  const hasDataForCurrentPeriod =
+    !!selectedYearId && !!selectedSemesterId && adminCriteria.length > 0;
+
+  const handleYearChange = (yearId) => {
+    setSelectedYearId(yearId);
+    setSelectedSemesterId("");
+  };
+
+  const timeWindow = useTimeWindow(selectedYearId, selectedSemesterId, "student");
+
   const {
-    selectedSemester,
-    selectedYear,
     isEditing,
     showConfirmModal,
     uploadedImages,
     tempImages,
     viewingImage,
-    hasDataForCurrentPeriod,
     modalItemKey,
     setModalItemKey,
     editingImage,
     setEditingImage,
-    setSelectedSemester,
-    setSelectedYear,
     handleScoreChange,
     handleRemoveTempImage,
     handleUploadClick,
@@ -41,18 +115,19 @@ const StudentHome = () => {
     hasAnySavedData,
     getDisplayScore,
     calculateTotals,
-  } = useScoreManagement(scoreData);
+  } = useScoreManagement(scoreData, hasDataForCurrentPeriod);
 
   const totals = calculateTotals();
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Filters */}
       <ScoreFilter
-        selectedSemester={selectedSemester}
-        selectedYear={selectedYear}
-        onSemesterChange={setSelectedSemester}
-        onYearChange={setSelectedYear}
+        years={allYears}
+        semesters={semesters}
+        selectedYearId={selectedYearId}
+        selectedSemesterId={selectedSemesterId}
+        onYearChange={handleYearChange}
+        onSemesterChange={setSelectedSemesterId}
         showActionButton={hasDataForCurrentPeriod}
         actionButton={
           <ActionButton
@@ -60,19 +135,20 @@ const StudentHome = () => {
             hasAnySavedData={hasAnySavedData()}
             onSave={handleSave}
             onEdit={handleStartScoring}
+            timeWindow={timeWindow}
           />
         }
       />
 
-      {/* Conditional Rendering: Empty State hoặc Score Table */}
       {!hasDataForCurrentPeriod ? (
         <EmptyState
-          selectedSemester={selectedSemester}
-          selectedYear={selectedYear}
+          selectedSemesterName={selectedSemester?.name ?? ""}
+          selectedYearName={selectedYear?.name ?? ""}
+          hasCriteria={adminCriteria.length > 0}
+          hasPeriodSelected={!!selectedYearId && !!selectedSemesterId}
         />
       ) : (
         <>
-          {/* Score Table - Desktop */}
           <ScoreTableDesktop
             scoreData={scoreData}
             totals={totals}
@@ -88,7 +164,6 @@ const StudentHome = () => {
             handleRemoveTempImage={handleRemoveTempImage}
           />
 
-          {/* Score Cards - Mobile & Tablet */}
           <ScoreCardsMobile
             scoreData={scoreData}
             totals={totals}
@@ -104,29 +179,26 @@ const StudentHome = () => {
             handleRemoveTempImage={handleRemoveTempImage}
           />
 
-          {/* Action Button - Bottom */}
           <div className="flex justify-center md:justify-end">
             <ActionButton
               isEditing={isEditing}
               hasAnySavedData={hasAnySavedData()}
               onSave={handleSave}
               onEdit={handleStartScoring}
+              timeWindow={timeWindow}
             />
           </div>
         </>
       )}
 
-      {/* Image Viewer Modal (chỉ khi không edit) */}
       <ImageViewer imageUrl={viewingImage} onClose={closeImageViewer} />
 
-      {/* Confirmation Modal */}
       <ConfirmModal
         isOpen={showConfirmModal}
         onConfirm={handleConfirmSave}
         onCancel={handleCancelSave}
       />
 
-      {/* Modal thêm minh chứng mới */}
       {modalItemKey && (
         <MinhChungModal
           onSave={handleSaveMinhChung}
@@ -134,7 +206,6 @@ const StudentHome = () => {
         />
       )}
 
-      {/* Modal chỉnh sửa minh chứng */}
       {editingImage && (
         <MinhChungModal
           initialData={editingImage.data}
