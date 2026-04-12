@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   PCTSV_CLASSES,
   PCTSV_FACULTIES,
@@ -56,11 +56,16 @@ const ApproveConfirmModal = ({ classItem, onConfirm, onCancel }) => (
 
 const PctsvBangDiemSV = () => {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  const isLeader = pathname.startsWith("/student-affairs-leader");
+  const _base    = isLeader ? "/student-affairs-leader" : "/student-affairs-staff";
+  const _role    = isLeader ? ROLES.STUDENT_AFFAIRS_LEADER : ROLES.STUDENT_AFFAIRS_STAFF;
 
   const allYears     = readLS(ADMIN_LS_KEYS.YEARS, []);
   const allSemesters = readLS(ADMIN_LS_KEYS.SEMESTERS, {});
 
-  const [filter, updateFilter] = useRoleFilter(ROLES.STUDENT_AFFAIRS_STAFF, {
+  const [filter, updateFilter] = useRoleFilter(_role, {
     semesterId: "",
     yearId: "",
     khoaId: "",
@@ -103,9 +108,7 @@ const PctsvBangDiemSV = () => {
     setFacultyApproved(freshFaculty);
     const key = getPeriodKey(classId);
     if (!freshFaculty[key]) return;
-    navigate(
-      `/student-affairs-staff/bang-diem-sv/${classId}?yearId=${selectedYearId}&semId=${selectedSemesterId}`
-    );
+    navigate(`${_base}/bang-diem-sv/${classId}?yearId=${selectedYearId}&semId=${selectedSemesterId}`);
   };
 
   const filteredClasses = useMemo(() => {

@@ -174,6 +174,15 @@ const HomeroomClassScoreBoard = () => {
     };
   }, [selectedYearId, selectedSemesterId]);
 
+  // ── Sync checked state khi hook lưu điểm từ trang chi tiết ─────────────────
+  useEffect(() => {
+    const refreshChecked = () => {
+      setAllCheckedData(readLS(GVCN_CHECKED_KEY, {}));
+    };
+    window.addEventListener("gvcnCheckedUpdated", refreshChecked);
+    return () => window.removeEventListener("gvcnCheckedUpdated", refreshChecked);
+  }, []);
+
   const showToast = (msg, type = "warn") => {
     setToast({ msg, type });
     setTimeout(() => setToast({ msg: "", type: "" }), 3000);

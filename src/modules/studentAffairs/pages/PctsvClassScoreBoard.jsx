@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { classMembers } from "../../classLeader/constants/classMembers";
 import { PCTSV_CLASSES } from "../constants/studentAffairs.constants";
 import { useScoreContext } from "../../../context/ScoreContext";
@@ -50,6 +50,10 @@ const PctsvClassScoreBoard = () => {
   const { classId } = useParams();
   const navigate    = useNavigate();
   const [searchParams] = useSearchParams();
+  const { pathname }   = useLocation();
+
+  const isLeader = pathname.startsWith("/student-affairs-leader");
+  const _base    = isLeader ? "/student-affairs-leader" : "/student-affairs-staff";
 
   const classInfo = PCTSV_CLASSES.find((c) => c.id === classId);
 
@@ -104,7 +108,7 @@ const PctsvClassScoreBoard = () => {
 
   const handleViewDetail = (mssv) => {
     navigate(
-      `/student-affairs-staff/bang-diem-sv/${classId}/student/${mssv}?yearId=${selectedYearId}&semId=${selectedSemesterId}`
+      `${_base}/bang-diem-sv/${classId}/student/${mssv}?yearId=${selectedYearId}&semId=${selectedSemesterId}`
     );
   };
 
@@ -113,7 +117,7 @@ const PctsvClassScoreBoard = () => {
       <div className="flex flex-col items-center justify-center h-48 gap-4">
         <p className="text-gray-500">Không tìm thấy lớp học.</p>
         <button
-          onClick={() => navigate("/student-affairs-staff/bang-diem-sv")}
+          onClick={() => navigate(`${_base}/bang-diem-sv`)}
           className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 cursor-pointer text-sm"
         >
           ← Quay lại
@@ -162,7 +166,7 @@ const PctsvClassScoreBoard = () => {
 
           <div className="md:flex md:items-end">
             <button
-              onClick={() => navigate("/student-affairs-staff/bang-diem-sv")}
+              onClick={() => navigate(`${_base}/bang-diem-sv`)}
               className="w-full md:w-auto px-6 py-2.5 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
             >
               ← Quay lại

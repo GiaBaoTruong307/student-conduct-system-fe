@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { classMembers } from "../../classLeader/constants/classMembers";
 import { useScoreContext } from "../../../context/ScoreContext";
 import GVCNScoreTableDesktop from "../../homeroomTeacher/components/GVCNScoreTableDesktop";
@@ -84,6 +84,10 @@ const PctsvStudentScoreDetail = () => {
   const { classId, mssv } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { pathname }   = useLocation();
+
+  const isLeader = pathname.startsWith("/student-affairs-leader");
+  const _base    = isLeader ? "/student-affairs-leader" : "/student-affairs-staff";
 
   const yearId = searchParams.get("yearId") ?? "";
   const semId  = searchParams.get("semId")  ?? "";
@@ -172,9 +176,7 @@ const PctsvStudentScoreDetail = () => {
   const [viewingImage, setViewingImage] = useState(null);
 
   const goBack = () =>
-    navigate(
-      `/student-affairs-staff/bang-diem-sv/${classId}?yearId=${yearId}&semId=${semId}`
-    );
+    navigate(`${_base}/bang-diem-sv/${classId}?yearId=${yearId}&semId=${semId}`);
 
   if (!member) {
     return (

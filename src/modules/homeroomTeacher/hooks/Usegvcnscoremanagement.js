@@ -178,8 +178,13 @@ export const useGVCNScoreManagement = (
     if (!rescoreMode) {
       // Chế độ thường: auto-tick checkbox
       if (mssv) {
-        const allChecked = readLS(GVCN_CHECKED_KEY, {});
-        writeLS(GVCN_CHECKED_KEY, { ...allChecked, [mssv]: true });
+        const periodKey    = `${yearId}_${semId}`;
+        const allCheckedLS = readLS(GVCN_CHECKED_KEY, {});
+        writeLS(GVCN_CHECKED_KEY, {
+          ...allCheckedLS,
+          [periodKey]: { ...(allCheckedLS[periodKey] ?? {}), [mssv]: true },
+        });
+        window.dispatchEvent(new CustomEvent("gvcnCheckedUpdated"));
       }
     } else {
       // Chế độ chấm lại: tạo entry rescore trong gvcnAdjustmentRequests

@@ -147,7 +147,7 @@ const Login = () => {
                       className="w-4 h-4 accent-[#3d2f6b] cursor-pointer"
                     />
                     <span className="text-sm text-gray-700 group-hover:text-[#3d2f6b] transition-colors select-none">
-                      Nhân viên
+                      Chuyên viên
                     </span>
                   </label>
                   <label className="flex items-center gap-2.5 cursor-pointer group flex-1">
