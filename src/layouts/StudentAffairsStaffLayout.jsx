@@ -3,21 +3,31 @@ import { useState, useEffect, useRef } from "react";
 import useLogout from "../hooks/useLogout";
 import logo from "../assets/images/logo-header.png";
 
-const STUDENT_REQUESTS_KEY = "studentAdjustmentRequests";
 const GVCN_REQUESTS_KEY    = "gvcnAdjustmentRequests";
-const NOTIF_KEY            = "gvcnNotifications";
+const STUDENT_REQUESTS_KEY = "studentAdjustmentRequests";
+const NOTIF_KEY            = "pctsvNotifications";
 
 const NAV_ITEMS = [
-  { label: "Bảng điểm lớp chủ nhiệm", path: "/homeroom-teacher/class-score" },
-  { label: "Đề nghị điều chỉnh điểm",  path: "/homeroom-teacher/adjustment" },
+  { label: "Bảng điểm sinh viên",                  path: "/student-affairs-staff/bang-diem-sv" },
+  { label: "Đề nghị điều chỉnh điểm trong trường", path: "/student-affairs-staff/de-nghi-dieu-chinh" },
+  { label: "Báo cáo",                               path: "/student-affairs-staff/bao-cao" },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const ADJUSTMENT_PATH = "/student-affairs-staff/de-nghi-dieu-chinh";
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 const readPendingRequests = () => {
   try {
-    const all = JSON.parse(localStorage.getItem(STUDENT_REQUESTS_KEY) || "[]");
-    return all.filter((r) => r.trangThai === "chua-duyet");
+    const gvcnReqs    = JSON.parse(localStorage.getItem(GVCN_REQUESTS_KEY)    || "[]");
+    const studentReqs = JSON.parse(localStorage.getItem(STUDENT_REQUESTS_KEY) || "[]");
+    const fromGvcn    = gvcnReqs.filter((r) => r.trangThai === "khoa-duyet");
+    const fromRescore = gvcnReqs.filter((r) => r.trangThai === "rescore-khoa-duyet");
+    const coveredIds  = new Set(fromGvcn.map((r) => r.studentRequestId).filter(Boolean));
+    const fromStudent = studentReqs.filter(
+      (r) => r.trangThai === "khoa-duyet" && !coveredIds.has(r.id)
+    );
+    return [...fromGvcn, ...fromStudent, ...fromRescore];
   } catch { return []; }
 };
 
@@ -31,56 +41,41 @@ const saveNotifications = (notifs) => {
 };
 
 const syncNotifications = (pendingReqs) => {
-  const existing     = readNotifications();
-  const existingRefs = new Set(existing.map((n) => n.refId));
-
-  // Part 1: incoming student requests chờ GVCN duyệt
-  const incomingNotifs = pendingReqs
-    .filter((req) => !existingRefs.has(req.id))
-    .map((req) => ({
-      id:        `notif_adj_${req.id}`,
-      refId:     req.id,
-      type:      "student-pending",
-      title:     `Đơn đề nghị điều chỉnh điểm #${req.id}`,
-      message:   ["Sinh viên gửi đơn chờ duyệt", req.hocKy, req.namHoc, req.ngayTao]
-        .filter(Boolean).join(" · "),
-      read:      false,
-      createdAt: req.ngayTao || "",
-    }));
-
-  // Part 2: Khoa đã duyệt đơn GVCN gửi lên (chỉ khoa-duyet, không tạo lại cho hoan-tat
-  // vì PCTSV sẽ tự ghi pctsv-approved-rescore trực tiếp)
-  const gvcnReqs = (() => {
-    try { return JSON.parse(localStorage.getItem(GVCN_REQUESTS_KEY) || "[]"); }
-    catch { return []; }
-  })();
-
-  const statusNotifs = [];
-  for (const req of gvcnReqs) {
-    if (req.trangThai !== "khoa-duyet") continue;
-    const refId = `gvcn_status_${req.id}_khoa-duyet`;
-    if (existingRefs.has(refId)) continue;
-    statusNotifs.push({
-      id:        `notif_gvcn_${req.id}_khoa-duyet`,
-      refId,
-      type:      "khoa-approved",
-      title:     `Khoa đã duyệt đơn đề nghị #${req.id}`,
-      message:   [req.hocKy, req.namHoc, req.ngayTao].filter(Boolean).join(" · "),
-      read:      false,
-      createdAt: req.ngayTao || "",
+  const existing       = readNotifications();
+  const existingRefIds = new Set(existing.map((n) => n.refId));
+  const newNotifs = pendingReqs
+    .filter((req) => {
+      const refId = req.trangThai === "rescore-khoa-duyet" ? `rescore_${req.id}` : req.id;
+      return !existingRefIds.has(refId);
+    })
+    .map((req) => {
+      const isRescore = req.trangThai === "rescore-khoa-duyet";
+      const refId     = isRescore ? `rescore_${req.id}` : req.id;
+      return {
+        id:        `notif_pctsv_${isRescore ? "rescore_" : ""}${req.id}`,
+        type:      isRescore ? "rescore_request" : "adjustment_request",
+        refId,
+        title:     isRescore
+          ? `Kết quả chấm lại của GVCN #${req.id}`
+          : `Đơn đề nghị điều chỉnh điểm #${req.id}`,
+        message:   isRescore
+          ? ["Khoa đã duyệt kết quả chấm lại, chờ PCTSV xác nhận", req.hocKy, req.namHoc, req.ngayTao]
+              .filter(Boolean).join(" · ")
+          : ["Khoa đã duyệt, chờ PCTSV xử lý", req.hocKy, req.namHoc, req.ngayTao]
+              .filter(Boolean).join(" · "),
+        read:      false,
+        createdAt: req.ngayTao || "",
+      };
     });
-  }
-
-  const allNew = [...incomingNotifs, ...statusNotifs];
-  if (allNew.length === 0) return existing;
-  const updated = [...allNew, ...existing];
+  if (newNotifs.length === 0) return existing;
+  const updated = [...newNotifs, ...existing];
   saveNotifications(updated);
   return updated;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const HomeroomTeacherLayout = () => {
+const StudentAffairsStaffLayout = () => {
   const logout   = useLogout();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -90,47 +85,29 @@ const HomeroomTeacherLayout = () => {
   const [notifications,    setNotifications]    = useState(() => syncNotifications(readPendingRequests()));
   const [highlightedIds,   setHighlightedIds]   = useState(new Set());
   const [showBellDropdown, setShowBellDropdown] = useState(false);
-  const [showLoginPopup,   setShowLoginPopup]   = useState(false);
 
-  const bellRef         = useRef(null);
-  const loginPopupShown = useRef(false);
-  const unreadCount     = notifications.filter((n) => !n.read).length;
+  const bellRef     = useRef(null);
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const userInfo = {
-    name:     "Nguyễn Văn Sơn",
-    role:     "Giáo viên chủ nhiệm",
-    initials: "NS",
+    name:     "Nguyễn Thùy Dung",
+    role:     "Nhân viên PCTSV",
+    initials: "TD",
   };
 
   const isActive = (path) => pathname.startsWith(path);
 
   useEffect(() => {
-    if (!loginPopupShown.current) {
-      loginPopupShown.current = true;
-      const pending = readPendingRequests();
-      if (pending.length > 0) setShowLoginPopup(true);
-    }
-
-    const handleIncoming = () => {
+    const handleUpdate = () => {
       const pending = readPendingRequests();
       setPendingCount(pending.length);
       setNotifications(syncNotifications(pending));
     };
-    const handleStatusUpdate = () => {
-      setNotifications(syncNotifications(readPendingRequests()));
-    };
-    // PCTSV ghi notification pctsv-approved-rescore trực tiếp → đọc lại
-    const handlePctsvRescore = () => {
-      setNotifications(readNotifications());
-    };
-
-    window.addEventListener("studentRequestsUpdated",  handleIncoming);
-    window.addEventListener("gvcnStatusUpdated",       handleStatusUpdate);
-    window.addEventListener("pctsvApprovedRescore",    handlePctsvRescore);
+    window.addEventListener("khoaRequestsUpdated", handleUpdate);
+    window.addEventListener("khoaRescoreUpdated",  handleUpdate);
     return () => {
-      window.removeEventListener("studentRequestsUpdated",  handleIncoming);
-      window.removeEventListener("gvcnStatusUpdated",       handleStatusUpdate);
-      window.removeEventListener("pctsvApprovedRescore",    handlePctsvRescore);
+      window.removeEventListener("khoaRequestsUpdated", handleUpdate);
+      window.removeEventListener("khoaRescoreUpdated",  handleUpdate);
     };
   }, []);
 
@@ -159,64 +136,14 @@ const HomeroomTeacherLayout = () => {
     setShowBellDropdown((v) => !v);
   };
 
-  const handleNotifClick = (notif) => {
-    setShowBellDropdown(false);
-    setHighlightedIds(new Set());
-    if (notif.type === "pctsv-approved-rescore") {
-      // Điều hướng về bảng điểm lớp để GVCN chọn SV chấm lại
-      navigate("/homeroom-teacher/class-score");
-    } else {
-      navigate("/homeroom-teacher/adjustment");
-    }
-  };
-
   const handleGoToAdjustment = () => {
-    setShowLoginPopup(false);
     setShowBellDropdown(false);
     setHighlightedIds(new Set());
-    navigate("/homeroom-teacher/adjustment");
+    navigate(ADJUSTMENT_PATH);
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-
-      {showLoginPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
-            <div className="px-6 pt-6 pb-4 flex items-start gap-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-800 text-base">Thông báo đề nghị điều chỉnh điểm</h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  Đang có{" "}
-                  <span className="font-bold text-orange-600">{pendingCount} đơn</span>{" "}
-                  cần được duyệt từ sinh viên trong lớp.
-                </p>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 px-6 pb-5 pt-2 border-t border-gray-100">
-              <button
-                onClick={() => setShowLoginPopup(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 cursor-pointer"
-              >
-                Để sau
-              </button>
-              <button
-                onClick={handleGoToAdjustment}
-                className="px-4 py-2 bg-[#3d2f6b] hover:bg-[#2e2352] text-white text-sm font-semibold rounded-lg cursor-pointer"
-              >
-                Xem ngay
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
         <div className="px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center justify-between">
@@ -225,9 +152,10 @@ const HomeroomTeacherLayout = () => {
               <h1 className="text-base md:text-xl font-bold text-gray-800">DUE-Score</h1>
             </div>
 
+            {/* Desktop nav */}
             <nav className="hidden lg:flex items-center gap-8">
               {NAV_ITEMS.map((item) => {
-                const isAdjustment = item.path === "/homeroom-teacher/adjustment";
+                const isAdjustment = item.path === ADJUSTMENT_PATH;
                 return (
                   <button
                     key={item.path}
@@ -248,6 +176,7 @@ const HomeroomTeacherLayout = () => {
                 );
               })}
 
+              {/* Bell */}
               <div className="relative" ref={bellRef}>
                 <button
                   onClick={handleBellClick}
@@ -280,33 +209,20 @@ const HomeroomTeacherLayout = () => {
                       <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
                         {notifications.map((notif) => {
                           const isNew      = highlightedIds.has(notif.id);
-                          const isRescore  = notif.type === "pctsv-approved-rescore";
+                          const isRescore  = notif.type === "rescore_request";
                           return (
                             <button
                               key={notif.id}
-                              onClick={() => handleNotifClick(notif)}
-                              className={`w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors cursor-pointer ${
-                                isRescore
-                                  ? isNew ? "bg-blue-50/60" : "bg-white"
-                                  : isNew ? "bg-orange-50/60" : "bg-white"
-                              }`}
+                              onClick={handleGoToAdjustment}
+                              className={`w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors cursor-pointer ${isNew ? "bg-orange-50/60" : "bg-white"}`}
                             >
                               <div className="flex items-start gap-2.5">
-                                <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${
-                                  isNew
-                                    ? isRescore ? "bg-blue-500" : "bg-orange-500"
-                                    : "bg-gray-300"
-                                }`} />
-                                <div className="flex-1 min-w-0">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${isNew ? (isRescore ? "bg-purple-500" : "bg-orange-500") : "bg-gray-300"}`} />
+                                <div>
                                   <p className={`text-sm font-semibold ${isNew ? "text-gray-800" : "text-gray-500"}`}>
                                     {notif.title}
                                   </p>
                                   <p className="text-xs text-gray-500 mt-0.5">{notif.message}</p>
-                                  {isRescore && notif.deadline && (
-                                    <p className="text-xs text-blue-600 font-medium mt-0.5">
-                                      Hạn: {new Date(notif.deadline).toLocaleDateString("vi-VN")}
-                                    </p>
-                                  )}
                                 </div>
                               </div>
                             </button>
@@ -319,6 +235,7 @@ const HomeroomTeacherLayout = () => {
               </div>
             </nav>
 
+            {/* User info */}
             <div className="flex items-center gap-2 md:gap-4">
               <div className="hidden md:flex items-center gap-4">
                 <div className="text-right">
@@ -326,7 +243,7 @@ const HomeroomTeacherLayout = () => {
                   <div className="text-xs md:text-sm text-gray-500">{userInfo.role}</div>
                 </div>
                 <div className="relative group">
-                  <button className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-semibold hover:shadow-lg transition-shadow cursor-pointer text-sm md:text-base">
+                  <button className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center text-white font-semibold hover:shadow-lg transition-shadow cursor-pointer text-sm md:text-base">
                     {userInfo.initials}
                   </button>
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
@@ -349,10 +266,11 @@ const HomeroomTeacherLayout = () => {
             </div>
           </div>
 
+          {/* Mobile menu */}
           {mobileMenuOpen && (
             <div className="lg:hidden mt-4 pb-4 border-t border-gray-200 pt-4 space-y-4">
               <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
-                <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-semibold">
+                <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-amber-500 rounded-full flex items-center justify-center text-white font-semibold">
                   {userInfo.initials}
                 </div>
                 <div>
@@ -362,7 +280,7 @@ const HomeroomTeacherLayout = () => {
               </div>
               <nav className="space-y-2">
                 {NAV_ITEMS.map((item) => {
-                  const isAdjustment = item.path === "/homeroom-teacher/adjustment";
+                  const isAdjustment = item.path === ADJUSTMENT_PATH;
                   return (
                     <button
                       key={item.path}
@@ -383,7 +301,7 @@ const HomeroomTeacherLayout = () => {
               </nav>
               <div className="pt-4 border-t border-gray-200 space-y-2">
                 <button className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg cursor-pointer">Thông tin cá nhân</button>
-                <button className="w-full px-4 py-2 text-left text-gray-700 hover:bg-gray-50 rounded-lg cursor-pointer">Cài đặt</button>
+                <button className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg cursor-pointer">Cài đặt</button>
                 <button onClick={logout} className="w-full text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg cursor-pointer">Đăng xuất</button>
               </div>
             </div>
@@ -398,4 +316,4 @@ const HomeroomTeacherLayout = () => {
   );
 };
 
-export default HomeroomTeacherLayout;
+export default StudentAffairsStaffLayout;

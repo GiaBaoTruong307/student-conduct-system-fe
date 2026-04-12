@@ -1,4 +1,11 @@
-const ConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
+const ConfirmModal = ({
+  isOpen,
+  onConfirm,
+  onCancel,
+  title = "Xác nhận lưu",
+  message = "Bạn có chắc chắn muốn lưu các thay đổi về điểm và minh chứng không?",
+  confirmLabel = "Đồng ý",
+}) => {
   if (!isOpen) return null;
 
   return (
@@ -10,10 +17,8 @@ const ConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
         className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 transform transition-all duration-300 ease-out animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-xl font-bold text-gray-800 mb-3">Xác nhận lưu</h3>
-        <p className="text-gray-600 mb-6">
-          Bạn có chắc chắn muốn lưu các thay đổi về điểm và minh chứng không?
-        </p>
+        <h3 className="text-xl font-bold text-gray-800 mb-3">{title}</h3>
+        <p className="text-gray-600 mb-6">{message}</p>
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}
@@ -25,7 +30,7 @@ const ConfirmModal = ({ isOpen, onConfirm, onCancel }) => {
             onClick={onConfirm}
             className="px-5 py-2.5 bg-[#3d2f6b] text-white rounded-lg hover:bg-[#2f2454] transition-colors cursor-pointer font-medium"
           >
-            Đồng ý
+            {confirmLabel}
           </button>
         </div>
       </div>

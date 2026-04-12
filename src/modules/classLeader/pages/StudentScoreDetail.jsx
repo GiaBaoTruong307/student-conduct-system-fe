@@ -16,6 +16,10 @@ const ADMIN_LS_KEYS = {
   CRITERIA: "admin_criteria_sections",
 };
 
+const PCTSV_APPROVED_KEY = "pctsvApprovedClasses";
+const GVCN_ALL_DATA_KEY  = "gvcnAllData";
+const LINKED_CLASS_ID    = "48K14.1";
+
 const readLS = (key, def) => {
   try {
     const raw = localStorage.getItem(key);
@@ -34,22 +38,38 @@ const transformToScoreData = (adminSections) =>
       return 0;
     })
     .map((sec) => {
-      const criteria = (sec.criteria || []).map((cr, idx) => ({
-        id: String.fromCharCode(97 + idx),
-        title: "",
-        items: [
-          {
-            description: cr.content,
-            maxScore: cr.maxScore,
-            selfScore: 0,
-            reviewerScore: 0,
-            proof: "Tải minh chứng lên",
-            note: cr.isAutoUpdate
-              ? "Hệ thống của trường sẽ tự động cập nhật"
-              : undefined,
-          },
-        ],
-      }));
+      const criteria = (sec.criteria || []).map((cr, idx) => {
+        const subs = cr.subCriteria || [];
+        const items =
+          subs.length > 0
+            ? subs.map((sub) => ({
+                description: sub.content,
+                maxScore: sub.maxScore,
+                selfScore: 0,
+                reviewerScore: 0,
+                proof: "Tải minh chứng lên",
+                note: sub.isAutoUpdate
+                  ? "Hệ thống của trường sẽ tự động cập nhật"
+                  : undefined,
+              }))
+            : [
+                {
+                  description: cr.content,
+                  maxScore: cr.maxScore,
+                  selfScore: 0,
+                  reviewerScore: 0,
+                  proof: "Tải minh chứng lên",
+                  note: cr.isAutoUpdate
+                    ? "Hệ thống của trường sẽ tự động cập nhật"
+                    : undefined,
+                },
+              ];
+        return {
+          id: String.fromCharCode(97 + idx),
+          title: subs.length > 0 ? cr.content : "",
+          items,
+        };
+      });
 
       const maxScore = (sec.criteria || []).reduce(
         (s, c) => s + (c.maxScore || 0),
@@ -65,7 +85,16 @@ const transformToScoreData = (adminSections) =>
       };
     });
 
-const ActionButtons = ({ isEditing, hasAnySavedData, onBack, onSave, onStartScoring, timeWindow }) => {
+const ActionButtons = ({
+  isEditing,
+  hasAnySavedData,
+  isDraft,
+  onBack,
+  onSave,
+  onSaveDraft,
+  onStartScoring,
+  timeWindow,
+}) => {
   const blocked = timeWindow && !timeWindow.canEdit;
 
   const renderBadge = () => {
@@ -107,12 +136,20 @@ const ActionButtons = ({ isEditing, hasAnySavedData, onBack, onSave, onStartScor
       </button>
 
       {isEditing ? (
-        <button
-          onClick={onSave}
-          className="px-5 py-2.5 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors cursor-pointer text-sm"
-        >
-          Lưu
-        </button>
+        <>
+          <button
+            onClick={onSaveDraft}
+            className="px-5 py-2.5 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors cursor-pointer text-sm"
+          >
+            Lưu tạm
+          </button>
+          <button
+            onClick={onSave}
+            className="px-5 py-2.5 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors cursor-pointer text-sm"
+          >
+            Lưu
+          </button>
+        </>
       ) : blocked ? (
         renderBadge()
       ) : hasAnySavedData ? (
@@ -120,7 +157,7 @@ const ActionButtons = ({ isEditing, hasAnySavedData, onBack, onSave, onStartScor
           onClick={onStartScoring}
           className="px-5 py-2.5 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors cursor-pointer text-sm"
         >
-          Sửa
+          {isDraft ? "Tiếp tục chấm" : "Sửa"}
         </button>
       ) : (
         <button
@@ -152,12 +189,27 @@ const StudentScoreDetail = () => {
 
   const scoreData = transformToScoreData(adminCriteria);
 
-  const { studentSavedScores, studentSelfTotal, studentUploadedImages } = useScoreContext();
+  // PCTSV approval check
+  const periodKey       = yearId && semId ? `${yearId}_${semId}` : null;
+  const pctsvApproved   = readLS(PCTSV_APPROVED_KEY, {});
+  const isPctsvApproved = periodKey
+    ? !!pctsvApproved[`${LINKED_CLASS_ID}_${periodKey}`]
+    : false;
+
+  // Điểm GVCN cuối cùng (để hiển thị trong banner)
+  const gvcnAllData    = readLS(GVCN_ALL_DATA_KEY, {});
+  const gvcnFinalTotal = periodKey
+    ? (gvcnAllData[periodKey]?.[mssv]?.total ?? null)
+    : null;
+
+  const { getStudentPeriodData } = useScoreContext();
+  const studentPeriodData = getStudentPeriodData(yearId, semId);
 
   const member = classMembers.find((m) => m.mssv === mssv);
 
   const {
     isEditing,
+    isDraft,
     showConfirmModal,
     noteModalKey,
     getItemKey,
@@ -166,6 +218,7 @@ const StudentScoreDetail = () => {
     handleReviewerScoreChange,
     handleStartScoring,
     handleSave,
+    handleSaveDraft,
     handleConfirmSave,
     handleCancelSave,
     hasAnySavedData,
@@ -174,9 +227,14 @@ const StudentScoreDetail = () => {
     handleSaveNote,
     closeNoteModal,
     getNote,
-  } = useReviewerScoreManagement(scoreData, mssv);
+  } = useReviewerScoreManagement(scoreData, mssv, yearId, semId);
 
   const timeWindow = useTimeWindow(yearId, semId, "classLeader");
+
+  // Khi PCTSV đã duyệt → khóa chỉnh sửa
+  const effectiveTimeWindow = isPctsvApproved
+    ? { canEdit: false, status: "after", startTime: null, endTime: null }
+    : timeWindow;
 
   const [viewingImage, setViewingImage] = useState(null);
 
@@ -194,9 +252,9 @@ const StudentScoreDetail = () => {
     );
   }
 
-  const selfScores = member.isLinkedToStudent ? studentSavedScores : {};
-  const selfImages = member.isLinkedToStudent ? studentUploadedImages : {};
-  const selfTotal  = member.isLinkedToStudent ? studentSelfTotal : 0;
+  const selfScores = member.isLinkedToStudent ? (studentPeriodData.savedScores ?? {}) : {};
+  const selfImages = member.isLinkedToStudent ? (studentPeriodData.uploadedImages ?? {}) : {};
+  const selfTotal  = member.isLinkedToStudent ? (studentPeriodData.total ?? 0) : 0;
 
   const reviewerTotals = calculateReviewerTotals();
   const savedData      = hasAnySavedData();
@@ -204,11 +262,35 @@ const StudentScoreDetail = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
+
+      {/* Banner PCTSV đã duyệt */}
+      {isPctsvApproved && (
+        <div className="bg-green-50 border border-green-300 rounded-lg px-5 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 flex-shrink-0 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-lg">✓</span>
+            <div>
+              <p className="font-bold text-green-800 text-sm md:text-base">
+                Điểm rèn luyện của <span className="text-green-900">{member.ho} {member.ten}</span> đã được PCTSV phê duyệt chính thức
+              </p>
+              <p className="text-xs text-green-600 mt-0.5">
+                Điểm do Giáo viên chủ nhiệm đánh giá đã là điểm cuối cùng. Không thể chỉnh sửa thêm.
+              </p>
+            </div>
+          </div>
+          {gvcnFinalTotal !== null && (
+            <div className="flex-shrink-0 text-right">
+              <span className="text-2xl font-extrabold text-green-700">{gvcnFinalTotal}</span>
+              <span className="text-sm text-green-600 ml-1">điểm GVCN</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Header card */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <div className="flex-1 flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+          <div className="flex-1 flex items-start gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 mt-0.5">
               {member.ten.charAt(0)}
             </div>
             <div>
@@ -224,16 +306,24 @@ const StudentScoreDetail = () => {
                   {selectedYear?.name && `Năm học ${selectedYear.name}`}
                 </div>
               )}
+              {isDraft && !isEditing && (
+                <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-300 text-amber-700 text-xs font-medium rounded-full">
+                  <span>✏️</span>
+                  <span>Đang chấm dở — chưa hoàn tất</span>
+                </div>
+              )}
             </div>
           </div>
 
           <ActionButtons
             isEditing={isEditing}
             hasAnySavedData={savedData}
+            isDraft={isDraft}
             onBack={goBack}
             onSave={handleSave}
+            onSaveDraft={handleSaveDraft}
             onStartScoring={handleStartScoring}
-            timeWindow={timeWindow}
+            timeWindow={effectiveTimeWindow}
           />
         </div>
       </div>
@@ -276,10 +366,12 @@ const StudentScoreDetail = () => {
         <ActionButtons
           isEditing={isEditing}
           hasAnySavedData={savedData}
+          isDraft={isDraft}
           onBack={goBack}
           onSave={handleSave}
+          onSaveDraft={handleSaveDraft}
           onStartScoring={handleStartScoring}
-          timeWindow={timeWindow}
+          timeWindow={effectiveTimeWindow}
         />
       </div>
 
@@ -289,6 +381,9 @@ const StudentScoreDetail = () => {
         isOpen={showConfirmModal}
         onConfirm={handleConfirmSave}
         onCancel={handleCancelSave}
+        title="Xác nhận lưu hoàn tất"
+        message="Sau khi lưu, điểm sẽ được tính là đã hoàn thành và tự động tick xác nhận cho sinh viên này. Bạn có chắc chắn không?"
+        confirmLabel="Lưu hoàn tất"
       />
 
       {noteModalKey !== null && (
@@ -296,6 +391,7 @@ const StudentScoreDetail = () => {
           initialText={getNote(noteModalKey)}
           onSave={handleSaveNote}
           onClose={closeNoteModal}
+          readOnly={!isEditing}
         />
       )}
     </div>

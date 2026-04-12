@@ -34,22 +34,38 @@ const transformToScoreData = (adminSections) =>
       return 0;
     })
     .map((sec) => {
-      const criteria = (sec.criteria || []).map((cr, idx) => ({
-        id: String.fromCharCode(97 + idx),
-        title: "",
-        items: [
-          {
-            description: cr.content,
-            maxScore: cr.maxScore,
-            selfScore: 0,
-            reviewerScore: 0,
-            proof: "Tải minh chứng lên",
-            note: cr.isAutoUpdate
-              ? "Hệ thống của trường sẽ tự động cập nhật"
-              : undefined,
-          },
-        ],
-      }));
+      const criteria = (sec.criteria || []).map((cr, idx) => {
+        const subs = cr.subCriteria || [];
+        const items =
+          subs.length > 0
+            ? subs.map((sub) => ({
+                description: sub.content,
+                maxScore: sub.maxScore,
+                selfScore: 0,
+                reviewerScore: 0,
+                proof: "Tải minh chứng lên",
+                note: sub.isAutoUpdate
+                  ? "Hệ thống của trường sẽ tự động cập nhật"
+                  : undefined,
+              }))
+            : [
+                {
+                  description: cr.content,
+                  maxScore: cr.maxScore,
+                  selfScore: 0,
+                  reviewerScore: 0,
+                  proof: "Tải minh chứng lên",
+                  note: cr.isAutoUpdate
+                    ? "Hệ thống của trường sẽ tự động cập nhật"
+                    : undefined,
+                },
+              ];
+        return {
+          id: String.fromCharCode(97 + idx),
+          title: subs.length > 0 ? (cr.content || "") : null,
+          items,
+        };
+      });
 
       const maxScore = (sec.criteria || []).reduce(
         (s, c) => s + (c.maxScore || 0),
@@ -115,7 +131,12 @@ const ClassLeaderHome = () => {
     hasAnySavedData,
     getDisplayScore,
     calculateTotals,
-  } = useScoreManagement(scoreData, hasDataForCurrentPeriod);
+  } = useScoreManagement(
+    scoreData,
+    selectedYearId,
+    selectedSemesterId,
+    hasDataForCurrentPeriod
+  );
 
   const totals = calculateTotals();
 

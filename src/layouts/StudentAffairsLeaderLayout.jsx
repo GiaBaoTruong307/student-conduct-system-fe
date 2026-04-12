@@ -3,26 +3,27 @@ import { useState, useEffect, useRef } from "react";
 import useLogout from "../hooks/useLogout";
 import logo from "../assets/images/logo-header.png";
 
-const GVCN_REQUESTS_KEY = "gvcnAdjustmentRequests";
-const NOTIF_KEY         = "khoaNotifications";
+const GVCN_REQUESTS_KEY    = "gvcnAdjustmentRequests";
+const STUDENT_REQUESTS_KEY = "studentAdjustmentRequests";
+const NOTIF_KEY            = "pctsvNotifications";
 
 const NAV_ITEMS = [
-  { label: "Bảng điểm Khoa",                     path: "/faculty-staff/bang-diem-khoa" },
-  { label: "Đề nghị điều chỉnh điểm trong Khoa", path: "/faculty-staff/de-nghi-dieu-chinh" },
+  { label: "Trang chủ", path: "/student-affairs-leader/home" },
 ];
-
-const ADJUSTMENT_PATH = "/faculty-staff/de-nghi-dieu-chinh";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 const readPendingRequests = () => {
   try {
-    const all = JSON.parse(localStorage.getItem(GVCN_REQUESTS_KEY) || "[]");
-    return all.filter(
-      (r) =>
-        ((r.source === "student" || r.source === "gvcn") && r.trangThai === "chua-duyet") ||
-        (r.source === "rescore" && r.trangThai === "rescore-submitted")
+    const gvcnReqs    = JSON.parse(localStorage.getItem(GVCN_REQUESTS_KEY)    || "[]");
+    const studentReqs = JSON.parse(localStorage.getItem(STUDENT_REQUESTS_KEY) || "[]");
+    const fromGvcn    = gvcnReqs.filter((r) => r.trangThai === "khoa-duyet");
+    const fromRescore = gvcnReqs.filter((r) => r.trangThai === "rescore-khoa-duyet");
+    const coveredIds  = new Set(fromGvcn.map((r) => r.studentRequestId).filter(Boolean));
+    const fromStudent = studentReqs.filter(
+      (r) => r.trangThai === "khoa-duyet" && !coveredIds.has(r.id)
     );
+    return [...fromGvcn, ...fromStudent, ...fromRescore];
   } catch { return []; }
 };
 
@@ -36,70 +37,46 @@ const saveNotifications = (notifs) => {
 };
 
 const syncNotifications = (pendingReqs) => {
-  const existing     = readNotifications();
-  const existingRefs = new Set(existing.map((n) => n.refId));
-
-  // Part 1: đơn chua-duyet bình thường từ SV/GVCN
-  const incomingNotifs = pendingReqs
-    .filter((req) => req.source !== "rescore" && !existingRefs.has(req.id))
-    .map((req) => ({
-      id:        `notif_khoa_${req.id}`,
-      refId:     req.id,
-      title:     `Đơn đề nghị điều chỉnh điểm #${req.id}`,
-      message:   ["GVCN chuyển đơn chờ Khoa duyệt", req.hocKy, req.namHoc, req.ngayTao]
-        .filter(Boolean).join(" · "),
-      read:      false,
-      createdAt: req.ngayTao || "",
-    }));
-
-  // Part 2: GVCN đã chấm lại → thông báo Khoa duyệt lần 2
-  const rescoreNotifs = pendingReqs
-    .filter((req) => req.source === "rescore" && !existingRefs.has(`rescore_submitted_${req.id}`))
-    .map((req) => ({
-      id:        `notif_khoa_rescore_${req.id}`,
-      refId:     `rescore_submitted_${req.id}`,
-      title:     `GVCN đã chấm lại điểm — chờ Khoa duyệt`,
-      message:   [`SV: ${req.svHoTen}`, req.hocKy, req.namHoc].filter(Boolean).join(" · "),
-      read:      false,
-      createdAt: req.rescoreSubmittedAt || req.ngayTao || "",
-    }));
-
-  // Part 3: PCTSV hoàn tất → thông báo về Khoa
-  const allGvcnReqs = (() => {
-    try { return JSON.parse(localStorage.getItem(GVCN_REQUESTS_KEY) || "[]"); }
-    catch { return []; }
-  })();
-
-  const statusNotifs = allGvcnReqs
-    .filter((req) => req.trangThai === "hoan-tat" || req.trangThai === "rescore-hoan-tat")
-    .filter((req) => !existingRefs.has(`khoa_status_${req.id}_${req.trangThai}`))
-    .map((req) => ({
-      id:        `notif_khoa_${req.id}_${req.trangThai}`,
-      refId:     `khoa_status_${req.id}_${req.trangThai}`,
-      title:     req.trangThai === "rescore-hoan-tat"
-        ? `PCTSV đã duyệt điểm chấm lại #${req.id}`
-        : `PCTSV đã hoàn tất đơn #${req.id}`,
-      message:   [req.hocKy, req.namHoc, req.ngayTao].filter(Boolean).join(" · "),
-      read:      false,
-      createdAt: req.ngayTao || "",
-    }));
-
-  const allNew = [...incomingNotifs, ...rescoreNotifs, ...statusNotifs];
-  if (allNew.length === 0) return existing;
-  const updated = [...allNew, ...existing];
+  const existing       = readNotifications();
+  const existingRefIds = new Set(existing.map((n) => n.refId));
+  const newNotifs = pendingReqs
+    .filter((req) => {
+      const refId = req.trangThai === "rescore-khoa-duyet" ? `rescore_${req.id}` : req.id;
+      return !existingRefIds.has(refId);
+    })
+    .map((req) => {
+      const isRescore = req.trangThai === "rescore-khoa-duyet";
+      const refId     = isRescore ? `rescore_${req.id}` : req.id;
+      return {
+        id:        `notif_pctsv_${isRescore ? "rescore_" : ""}${req.id}`,
+        type:      isRescore ? "rescore_request" : "adjustment_request",
+        refId,
+        title:     isRescore
+          ? `Kết quả chấm lại của GVCN #${req.id}`
+          : `Đơn đề nghị điều chỉnh điểm #${req.id}`,
+        message:   isRescore
+          ? ["Khoa đã duyệt kết quả chấm lại, chờ PCTSV xác nhận", req.hocKy, req.namHoc, req.ngayTao]
+              .filter(Boolean).join(" · ")
+          : ["Khoa đã duyệt, chờ PCTSV xử lý", req.hocKy, req.namHoc, req.ngayTao]
+              .filter(Boolean).join(" · "),
+        read:      false,
+        createdAt: req.ngayTao || "",
+      };
+    });
+  if (newNotifs.length === 0) return existing;
+  const updated = [...newNotifs, ...existing];
   saveNotifications(updated);
   return updated;
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-const FacultyStaffLayout = () => {
+const StudentAffairsLeaderLayout = () => {
   const logout   = useLogout();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [pendingCount,     setPendingCount]     = useState(() => readPendingRequests().length);
   const [notifications,    setNotifications]    = useState(() => syncNotifications(readPendingRequests()));
   const [highlightedIds,   setHighlightedIds]   = useState(new Set());
   const [showBellDropdown, setShowBellDropdown] = useState(false);
@@ -108,32 +85,23 @@ const FacultyStaffLayout = () => {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const userInfo = {
-    name:     "Nguyễn Văn Hùng",
-    role:     "Cán bộ Khoa",
-    initials: "VH",
+    name:     "Trần Văn Minh",
+    role:     "Lãnh đạo PCTSV",
+    initials: "VM",
   };
 
   const isActive = (path) => pathname.startsWith(path);
 
   useEffect(() => {
-    const handleIncoming = () => {
+    const handleUpdate = () => {
       const pending = readPendingRequests();
-      setPendingCount(pending.length);
       setNotifications(syncNotifications(pending));
     };
-    const handleStatusUpdate = () => {
-      setNotifications(syncNotifications(readPendingRequests()));
-    };
-
-    window.addEventListener("gvcnRequestsUpdated",  handleIncoming);
-    window.addEventListener("gvcnRescoreSubmitted", handleIncoming);   // ← mới: GVCN nộp chấm lại
-    window.addEventListener("khoaStatusUpdated",    handleStatusUpdate);
-    window.addEventListener("khoaRescoreUpdated",   handleStatusUpdate); // ← mới: sau khi Khoa approve lần 2
+    window.addEventListener("khoaRequestsUpdated", handleUpdate);
+    window.addEventListener("khoaRescoreUpdated",  handleUpdate);
     return () => {
-      window.removeEventListener("gvcnRequestsUpdated",  handleIncoming);
-      window.removeEventListener("gvcnRescoreSubmitted", handleIncoming);
-      window.removeEventListener("khoaStatusUpdated",    handleStatusUpdate);
-      window.removeEventListener("khoaRescoreUpdated",   handleStatusUpdate);
+      window.removeEventListener("khoaRequestsUpdated", handleUpdate);
+      window.removeEventListener("khoaRescoreUpdated",  handleUpdate);
     };
   }, []);
 
@@ -162,12 +130,6 @@ const FacultyStaffLayout = () => {
     setShowBellDropdown((v) => !v);
   };
 
-  const handleGoToAdjustment = () => {
-    setShowBellDropdown(false);
-    setHighlightedIds(new Set());
-    navigate(ADJUSTMENT_PATH);
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
@@ -178,29 +140,23 @@ const FacultyStaffLayout = () => {
               <h1 className="text-base md:text-xl font-bold text-gray-800">DUE-Score</h1>
             </div>
 
+            {/* Desktop nav */}
             <nav className="hidden lg:flex items-center gap-8">
-              {NAV_ITEMS.map((item) => {
-                const isAdjustment = item.path === ADJUSTMENT_PATH;
-                return (
-                  <button
-                    key={item.path}
-                    onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer pb-1 ${
-                      isActive(item.path)
-                        ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
-                        : "text-gray-600 hover:text-[#3d2f6b]"
-                    }`}
-                  >
-                    {item.label}
-                    {isAdjustment && pendingCount > 0 && (
-                      <span className="min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
-                        {pendingCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              {NAV_ITEMS.map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  className={`font-medium transition-colors cursor-pointer pb-1 ${
+                    isActive(item.path)
+                      ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
+                      : "text-gray-600 hover:text-[#3d2f6b]"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
 
+              {/* Bell */}
               <div className="relative" ref={bellRef}>
                 <button
                   onClick={handleBellClick}
@@ -232,15 +188,16 @@ const FacultyStaffLayout = () => {
                     ) : (
                       <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
                         {notifications.map((notif) => {
-                          const isNew = highlightedIds.has(notif.id);
+                          const isNew     = highlightedIds.has(notif.id);
+                          const isRescore = notif.type === "rescore_request";
                           return (
                             <button
                               key={notif.id}
-                              onClick={handleGoToAdjustment}
+                              onClick={() => setShowBellDropdown(false)}
                               className={`w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors cursor-pointer ${isNew ? "bg-orange-50/60" : "bg-white"}`}
                             >
                               <div className="flex items-start gap-2.5">
-                                <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${isNew ? "bg-orange-500" : "bg-gray-300"}`} />
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${isNew ? (isRescore ? "bg-purple-500" : "bg-orange-500") : "bg-gray-300"}`} />
                                 <div>
                                   <p className={`text-sm font-semibold ${isNew ? "text-gray-800" : "text-gray-500"}`}>
                                     {notif.title}
@@ -258,6 +215,7 @@ const FacultyStaffLayout = () => {
               </div>
             </nav>
 
+            {/* User info */}
             <div className="flex items-center gap-2 md:gap-4">
               <div className="hidden md:flex items-center gap-4">
                 <div className="text-right">
@@ -265,7 +223,7 @@ const FacultyStaffLayout = () => {
                   <div className="text-xs md:text-sm text-gray-500">{userInfo.role}</div>
                 </div>
                 <div className="relative group">
-                  <button className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold hover:shadow-lg transition-shadow cursor-pointer text-sm md:text-base">
+                  <button className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-rose-500 to-red-600 rounded-full flex items-center justify-center text-white font-semibold hover:shadow-lg transition-shadow cursor-pointer text-sm md:text-base">
                     {userInfo.initials}
                   </button>
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
@@ -288,10 +246,11 @@ const FacultyStaffLayout = () => {
             </div>
           </div>
 
+          {/* Mobile menu */}
           {mobileMenuOpen && (
             <div className="lg:hidden mt-4 pb-4 border-t border-gray-200 pt-4 space-y-4">
               <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold">
+                <div className="w-10 h-10 bg-gradient-to-br from-rose-500 to-red-600 rounded-full flex items-center justify-center text-white font-semibold">
                   {userInfo.initials}
                 </div>
                 <div>
@@ -300,25 +259,17 @@ const FacultyStaffLayout = () => {
                 </div>
               </div>
               <nav className="space-y-2">
-                {NAV_ITEMS.map((item) => {
-                  const isAdjustment = item.path === ADJUSTMENT_PATH;
-                  return (
-                    <button
-                      key={item.path}
-                      onClick={() => { navigate(item.path); setMobileMenuOpen(false); }}
-                      className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2 ${
-                        isActive(item.path) ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
-                      }`}
-                    >
-                      {item.label}
-                      {isAdjustment && pendingCount > 0 && (
-                        <span className="min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
-                          {pendingCount}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                {NAV_ITEMS.map((item) => (
+                  <button
+                    key={item.path}
+                    onClick={() => { navigate(item.path); setMobileMenuOpen(false); }}
+                    className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors ${
+                      isActive(item.path) ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </nav>
               <div className="pt-4 border-t border-gray-200 space-y-2">
                 <button className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 rounded-lg cursor-pointer">Thông tin cá nhân</button>
@@ -337,4 +288,4 @@ const FacultyStaffLayout = () => {
   );
 };
 
-export default FacultyStaffLayout;
+export default StudentAffairsLeaderLayout;

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ROLES } from "../utils/role";
+import { clearRoleFilter } from "../hooks/useRoleFilter";
 import logo from "../assets/images/logo-header.png";
 import logoLogin from "../assets/images/logo-login.png";
 
@@ -13,22 +14,23 @@ const Login = () => {
     role: ROLES.STUDENT,
   });
 
+  const [subRole, setSubRole] = useState(ROLES.STUDENT_AFFAIRS_STAFF);
   const [rememberMe, setRememberMe] = useState(false);
 
   const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleLogin = (e) => {
     e.preventDefault();
 
-    // DEMO: fake login
-    localStorage.setItem("role", form.role);
+    const actualRole =
+      form.role === ROLES.STUDENT_AFFAIRS ? subRole : form.role;
 
-    switch (form.role) {
+    clearRoleFilter(actualRole);
+    localStorage.setItem("role", actualRole);
+
+    switch (actualRole) {
       case ROLES.ADMIN:
         navigate("/admin");
         break;
@@ -41,8 +43,11 @@ const Login = () => {
       case ROLES.HOMEROOM_TEACHER:
         navigate("/homeroom-teacher");
         break;
-      case ROLES.STUDENT_AFFAIRS:
-        navigate("/student-affairs");
+      case ROLES.STUDENT_AFFAIRS_STAFF:
+        navigate("/student-affairs-staff");
+        break;
+      case ROLES.STUDENT_AFFAIRS_LEADER:
+        navigate("/student-affairs-leader");
         break;
       case ROLES.STUDENT:
         navigate("/student/individual-score");
@@ -117,15 +122,50 @@ const Login = () => {
                 className="w-full px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent text-gray-700 text-sm md:text-base cursor-pointer"
               >
                 <option value={ROLES.STUDENT}>Sinh viên</option>
-                <option value={ROLES.CLASS_LEADER}>Lớp trưởng</option>
-                <option value={ROLES.HOMEROOM_TEACHER}>
-                  Giáo viên chủ nhiệm
-                </option>
-                <option value={ROLES.FACULTY_STAFF}>Cán bộ khoa</option>
-                <option value={ROLES.STUDENT_AFFAIRS}>Phòng CTCT-SV</option>
-                <option value={ROLES.ADMIN}>Quản trị viên</option>
+                <option value={ROLES.CLASS_LEADER}>Ban cán sự</option>
+                <option value={ROLES.HOMEROOM_TEACHER}>Giảng viên chủ nhiệm</option>
+                <option value={ROLES.FACULTY_STAFF}>Lãnh đạo Khoa</option>
+                <option value={ROLES.STUDENT_AFFAIRS}>Phòng Công tác sinh viên, Quan hệ  doanh nghiệp và Truyền thông </option>
+                <option value={ROLES.ADMIN}>Admin</option>
               </select>
             </div>
+
+            {/* Sub-role selection — chỉ hiện khi chọn Phòng CTCT-SV */}
+            {form.role === ROLES.STUDENT_AFFAIRS && (
+              <div className="px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg">
+                <p className="text-sm font-semibold text-[#3d2f6b] mb-3">
+                  Chọn chức vụ:
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <label className="flex items-center gap-2.5 cursor-pointer group flex-1">
+                    <input
+                      type="radio"
+                      name="subRole"
+                      value={ROLES.STUDENT_AFFAIRS_STAFF}
+                      checked={subRole === ROLES.STUDENT_AFFAIRS_STAFF}
+                      onChange={(e) => setSubRole(e.target.value)}
+                      className="w-4 h-4 accent-[#3d2f6b] cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-700 group-hover:text-[#3d2f6b] transition-colors select-none">
+                      Nhân viên
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-2.5 cursor-pointer group flex-1">
+                    <input
+                      type="radio"
+                      name="subRole"
+                      value={ROLES.STUDENT_AFFAIRS_LEADER}
+                      checked={subRole === ROLES.STUDENT_AFFAIRS_LEADER}
+                      onChange={(e) => setSubRole(e.target.value)}
+                      className="w-4 h-4 accent-[#3d2f6b] cursor-pointer"
+                    />
+                    <span className="text-sm text-gray-700 group-hover:text-[#3d2f6b] transition-colors select-none">
+                      Lãnh đạo
+                    </span>
+                  </label>
+                </div>
+              </div>
+            )}
 
             {/* Remember Me */}
             <div className="flex items-center">
@@ -166,7 +206,7 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Footer Info - Optional */}
+          {/* Footer */}
           <div className="mt-6 text-center text-xs md:text-sm text-gray-500">
             <p>© 2026 Đại học Kinh tế - Đại học Đà Nẵng</p>
           </div>

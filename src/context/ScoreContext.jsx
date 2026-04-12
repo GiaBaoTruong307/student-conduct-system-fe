@@ -12,39 +12,49 @@ const read = (key, def) => {
 };
 
 export const ScoreProvider = ({ children }) => {
-  const [studentSelfTotal, setStudentSelfTotalState] = useState(
-    () => read("studentSelfTotal", 0)
+  // studentAllData: { "yearId_semId": { savedScores, uploadedImages, total } }
+  const [studentAllData, setStudentAllDataState] = useState(
+    () => read("studentAllData", {})
   );
-  const [studentSavedScores, setStudentSavedScoresState] = useState(
-    () => read("studentSavedScores", {})
-  );
-  // Ảnh lưu dạng base64 nên persist được qua reload
-  const [studentUploadedImages, setStudentUploadedImagesState] = useState(
-    () => read("studentUploadedImages", {})
-  );
-  const [reviewerScoresByMssv, setReviewerScoresByMssvState] = useState(
-    () => read("reviewerScoresByMssv", {})
+  // reviewerAllData: { "yearId_semId": { [mssv]: { savedScores, notes, total } } }
+  const [reviewerAllData, setReviewerAllDataState] = useState(
+    () => read("reviewerAllData", {})
   );
 
-  const setStudentSelfTotal = (value) => {
-    localStorage.setItem("studentSelfTotal", JSON.stringify(value));
-    setStudentSelfTotalState(value);
+  const getPeriodKey = (yearId, semId) => `${yearId}_${semId}`;
+
+  const getStudentPeriodData = (yearId, semId) => {
+    if (!yearId || !semId) return { savedScores: {}, uploadedImages: {}, total: 0 };
+    return (
+      studentAllData[getPeriodKey(yearId, semId)] ?? {
+        savedScores: {},
+        uploadedImages: {},
+        total: 0,
+      }
+    );
   };
 
-  const setStudentSavedScores = (scores) => {
-    localStorage.setItem("studentSavedScores", JSON.stringify(scores));
-    setStudentSavedScoresState(scores);
+  const setStudentPeriodData = (yearId, semId, data) => {
+    setStudentAllDataState((prev) => {
+      const updated = { ...prev, [getPeriodKey(yearId, semId)]: data };
+      localStorage.setItem("studentAllData", JSON.stringify(updated));
+      return updated;
+    });
   };
 
-  const setStudentUploadedImages = (images) => {
-    localStorage.setItem("studentUploadedImages", JSON.stringify(images));
-    setStudentUploadedImagesState(images);
+  const getReviewerPeriodData = (yearId, semId) => {
+    if (!yearId || !semId) return {};
+    return reviewerAllData[getPeriodKey(yearId, semId)] ?? {};
   };
 
-  const setReviewerScoresForMssv = (mssv, data) => {
-    setReviewerScoresByMssvState((prev) => {
-      const updated = { ...prev, [mssv]: data };
-      localStorage.setItem("reviewerScoresByMssv", JSON.stringify(updated));
+  const setReviewerForPeriod = (yearId, semId, mssv, data) => {
+    setReviewerAllDataState((prev) => {
+      const key = getPeriodKey(yearId, semId);
+      const updated = {
+        ...prev,
+        [key]: { ...(prev[key] ?? {}), [mssv]: data },
+      };
+      localStorage.setItem("reviewerAllData", JSON.stringify(updated));
       return updated;
     });
   };
@@ -52,14 +62,10 @@ export const ScoreProvider = ({ children }) => {
   return (
     <ScoreContext.Provider
       value={{
-        studentSelfTotal,
-        setStudentSelfTotal,
-        studentSavedScores,
-        setStudentSavedScores,
-        studentUploadedImages,
-        setStudentUploadedImages,
-        reviewerScoresByMssv,
-        setReviewerScoresForMssv,
+        getStudentPeriodData,
+        setStudentPeriodData,
+        getReviewerPeriodData,
+        setReviewerForPeriod,
       }}
     >
       {children}

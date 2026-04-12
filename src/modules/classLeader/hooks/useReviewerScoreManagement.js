@@ -1,24 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useScoreContext } from "../../../context/ScoreContext";
 
-export const useReviewerScoreManagement = (scoreData, mssv) => {
-  const { reviewerScoresByMssv, setReviewerScoresForMssv } = useScoreContext();
+const CHECKED_KEY = "classBoardChecked";
 
-  const existing = reviewerScoresByMssv[mssv] || {
-    savedScores: {},
-    notes: {},
-    total: 0,
-  };
+export const useReviewerScoreManagement = (scoreData, mssv, yearId, semId) => {
+  const { getReviewerPeriodData, setReviewerForPeriod } = useScoreContext();
 
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [savedReviewerScores, setSavedReviewerScores] = useState(
-    existing.savedScores
-  );
+  const [savedReviewerScores, setSavedReviewerScores] = useState({});
   const [tempReviewerScores, setTempReviewerScores] = useState({});
-  const [savedNotes, setSavedNotes] = useState(existing.notes);
+  const [savedNotes, setSavedNotes] = useState({});
   const [tempNotes, setTempNotes] = useState({});
   const [noteModalKey, setNoteModalKey] = useState(null);
+  const [isDraft, setIsDraft] = useState(false);
+
+  // Load / reset data when period or mssv changes
+  useEffect(() => {
+    if (!yearId || !semId || !mssv) {
+      setSavedReviewerScores({});
+      setSavedNotes({});
+      setIsEditing(false);
+      setTempReviewerScores({});
+      setTempNotes({});
+      setIsDraft(false);
+      return;
+    }
+    try {
+      const all = JSON.parse(localStorage.getItem("reviewerAllData") || "{}");
+      const periodData = all[`${yearId}_${semId}`] ?? {};
+      const existing = periodData[mssv] ?? { savedScores: {}, notes: {}, isDraft: false };
+      setSavedReviewerScores(existing.savedScores ?? {});
+      setSavedNotes(existing.notes ?? {});
+      setIsDraft(existing.isDraft ?? false);
+    } catch {
+      setSavedReviewerScores({});
+      setSavedNotes({});
+      setIsDraft(false);
+    }
+    setIsEditing(false);
+    setTempReviewerScores({});
+    setTempNotes({});
+  }, [yearId, semId, mssv]);
 
   const getItemKey = (sectionIdx, criterionIdx, itemIdx) =>
     `${sectionIdx}-${criterionIdx}-${itemIdx}`;
@@ -69,6 +92,40 @@ export const useReviewerScoreManagement = (scoreData, mssv) => {
 
   const handleSave = () => setShowConfirmModal(true);
 
+  // Lưu tạm: lưu tiến độ, KHÔNG auto-tick checkbox
+  const handleSaveDraft = () => {
+    const filteredScores = {};
+    Object.keys(tempReviewerScores).forEach((key) => {
+      if (
+        tempReviewerScores[key] !== "" &&
+        tempReviewerScores[key] !== undefined &&
+        tempReviewerScores[key] !== null
+      ) {
+        filteredScores[key] = tempReviewerScores[key];
+      }
+    });
+    const total = Object.values(filteredScores).reduce(
+      (sum, v) => sum + Number(v),
+      0
+    );
+    const newNotes = { ...tempNotes };
+
+    setSavedReviewerScores(filteredScores);
+    setSavedNotes(newNotes);
+    setTempReviewerScores({});
+    setTempNotes({});
+    setIsEditing(false);
+    setIsDraft(true);
+
+    setReviewerForPeriod(yearId, semId, mssv, {
+      savedScores: filteredScores,
+      notes: newNotes,
+      total,
+      isDraft: true,
+    });
+  };
+
+  // Lưu hoàn tất: auto-tick checkbox trong ClassScoreBoard
   const handleConfirmSave = () => {
     const filteredScores = {};
     Object.keys(tempReviewerScores).forEach((key) => {
@@ -80,12 +137,10 @@ export const useReviewerScoreManagement = (scoreData, mssv) => {
         filteredScores[key] = tempReviewerScores[key];
       }
     });
-
     const total = Object.values(filteredScores).reduce(
       (sum, v) => sum + Number(v),
       0
     );
-
     const newNotes = { ...tempNotes };
 
     setSavedReviewerScores(filteredScores);
@@ -94,17 +149,35 @@ export const useReviewerScoreManagement = (scoreData, mssv) => {
     setTempNotes({});
     setIsEditing(false);
     setShowConfirmModal(false);
+    setIsDraft(false);
 
-    setReviewerScoresForMssv(mssv, {
+    setReviewerForPeriod(yearId, semId, mssv, {
       savedScores: filteredScores,
       notes: newNotes,
       total,
+      isDraft: false,
     });
+
+    // Auto-tick checkbox trong ClassScoreBoard
+    if (yearId && semId && mssv) {
+      try {
+        const periodKey = `${yearId}_${semId}`;
+        const allChecked = JSON.parse(localStorage.getItem(CHECKED_KEY) || "{}");
+        const updated = {
+          ...allChecked,
+          [periodKey]: { ...(allChecked[periodKey] || {}), [mssv]: true },
+        };
+        localStorage.setItem(CHECKED_KEY, JSON.stringify(updated));
+      } catch {}
+    }
   };
 
   const handleCancelSave = () => setShowConfirmModal(false);
 
   const hasAnySavedData = () =>
+    Object.values(savedReviewerScores).some(
+      (s) => s !== "" && s !== undefined && s !== null
+    ) ||
     Object.values(savedNotes).some(
       (n) => n !== "" && n !== undefined && n !== null
     );
@@ -129,7 +202,6 @@ export const useReviewerScoreManagement = (scoreData, mssv) => {
     );
   };
 
-  // Note handlers
   const openNoteModal = (itemKey) => setNoteModalKey(itemKey);
 
   const handleSaveNote = (text) => {
@@ -137,14 +209,13 @@ export const useReviewerScoreManagement = (scoreData, mssv) => {
     if (isEditing) {
       setTempNotes((prev) => ({ ...prev, [key]: text }));
     } else {
-      // Khi không ở edit mode (click Xem → sửa → lưu), cập nhật thẳng vào savedNotes + context
       const newNotes = { ...savedNotes, [key]: text };
       setSavedNotes(newNotes);
-      const data = reviewerScoresByMssv[mssv] || {
+      const existing = getReviewerPeriodData(yearId, semId)[mssv] ?? {
         savedScores: {},
         total: 0,
       };
-      setReviewerScoresForMssv(mssv, { ...data, notes: newNotes });
+      setReviewerForPeriod(yearId, semId, mssv, { ...existing, notes: newNotes });
     }
     setNoteModalKey(null);
   };
@@ -158,6 +229,7 @@ export const useReviewerScoreManagement = (scoreData, mssv) => {
 
   return {
     isEditing,
+    isDraft,
     showConfirmModal,
     noteModalKey,
     getItemKey,
@@ -166,6 +238,7 @@ export const useReviewerScoreManagement = (scoreData, mssv) => {
     getReviewerDisplayScore,
     handleStartScoring,
     handleSave,
+    handleSaveDraft,
     handleConfirmSave,
     handleCancelSave,
     hasAnySavedData,

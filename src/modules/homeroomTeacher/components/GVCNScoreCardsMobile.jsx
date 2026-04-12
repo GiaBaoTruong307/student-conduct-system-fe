@@ -6,6 +6,7 @@ const GVCNScoreCardsMobile = ({
   getItemKey,
   calculateGvcnSectionScore,
   getGvcnDisplayScore,
+  isGvcnModified,
   handleGvcnScoreChange,
   handleImageClick,
   getBcsNote,
@@ -108,8 +109,8 @@ const GVCNScoreCardsMobile = ({
                             {item.note
                               ? "-"
                               : selfScore !== undefined && selfScore !== ""
-                              ? selfScore
-                              : "-"}
+                                ? selfScore
+                                : "-"}
                           </div>
                         </div>
                         <div className="text-center">
@@ -124,17 +125,18 @@ const GVCNScoreCardsMobile = ({
                                 max={item.maxScore}
                                 value={gvcnScore}
                                 onChange={(e) =>
-                                  handleGvcnScoreChange(
-                                    itemKey,
-                                    e.target.value,
-                                    item.maxScore
-                                  )
+                                  handleGvcnScoreChange(itemKey, e.target.value, item.maxScore)
                                 }
-                                className="w-12 px-1 py-0.5 border border-emerald-400 rounded text-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                className={`w-12 px-1 py-0.5 border rounded text-center focus:outline-none font-medium ${isGvcnModified(itemKey)
+                                    ? "border-green-500 text-green-700 focus:ring-2 focus:ring-green-500"
+                                    : "border-red-400 text-red-600 focus:ring-2 focus:ring-red-400"
+                                  }`}
                                 placeholder="0"
                               />
                             ) : gvcnScore !== "" ? (
-                              <span className="text-emerald-700">{gvcnScore}</span>
+                              <span className={isGvcnModified(itemKey) ? "text-green-700" : "text-red-600"}>
+                                {gvcnScore}
+                              </span>
                             ) : (
                               "-"
                             )}

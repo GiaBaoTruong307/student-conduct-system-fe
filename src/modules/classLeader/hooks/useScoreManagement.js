@@ -8,7 +8,24 @@ const fileToBase64 = (file) =>
     reader.readAsDataURL(file);
   });
 
-export const useScoreManagement = (scoreData, hasDataForCurrentPeriod = false) => {
+const CL_ALL_DATA_KEY = "classLeaderAllData";
+
+const loadPeriodData = (yearId, semId) => {
+  if (!yearId || !semId) return { savedScores: {}, uploadedImages: {} };
+  try {
+    const all = JSON.parse(localStorage.getItem(CL_ALL_DATA_KEY) || "{}");
+    return all[`${yearId}_${semId}`] ?? { savedScores: {}, uploadedImages: {} };
+  } catch {
+    return { savedScores: {}, uploadedImages: {} };
+  }
+};
+
+export const useScoreManagement = (
+  scoreData,
+  yearId,
+  semId,
+  hasDataForCurrentPeriod = false
+) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [uploadedImages, setUploadedImages] = useState({});
@@ -18,6 +35,16 @@ export const useScoreManagement = (scoreData, hasDataForCurrentPeriod = false) =
   const [viewingImage, setViewingImage] = useState(null);
   const [modalItemKey, setModalItemKey] = useState(null);
   const [editingImage, setEditingImage] = useState(null);
+
+  // Load / reset when period changes
+  useEffect(() => {
+    const data = loadPeriodData(yearId, semId);
+    setSavedScores(data.savedScores);
+    setUploadedImages(data.uploadedImages);
+    setIsEditing(false);
+    setTempScores({});
+    setTempImages({});
+  }, [yearId, semId]);
 
   useEffect(() => {
     if (showConfirmModal || viewingImage || modalItemKey || editingImage) {
@@ -104,7 +131,11 @@ export const useScoreManagement = (scoreData, hasDataForCurrentPeriod = false) =
   const handleConfirmSave = () => {
     const filteredScores = {};
     Object.keys(tempScores).forEach((key) => {
-      if (tempScores[key] !== "" && tempScores[key] !== undefined && tempScores[key] !== null) {
+      if (
+        tempScores[key] !== "" &&
+        tempScores[key] !== undefined &&
+        tempScores[key] !== null
+      ) {
         filteredScores[key] = tempScores[key];
       }
     });
@@ -122,6 +153,21 @@ export const useScoreManagement = (scoreData, hasDataForCurrentPeriod = false) =
     setTempScores({});
     setIsEditing(false);
     setShowConfirmModal(false);
+
+    if (yearId && semId) {
+      try {
+        const all = JSON.parse(
+          localStorage.getItem(CL_ALL_DATA_KEY) || "{}"
+        );
+        all[`${yearId}_${semId}`] = {
+          savedScores: filteredScores,
+          uploadedImages: filteredImages,
+        };
+        localStorage.setItem(CL_ALL_DATA_KEY, JSON.stringify(all));
+      } catch {
+        // ignore
+      }
+    }
   };
 
   const handleCancelSave = () => setShowConfirmModal(false);
@@ -161,7 +207,11 @@ export const useScoreManagement = (scoreData, hasDataForCurrentPeriod = false) =
             const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
             acc.max += Number(item.maxScore || 0);
             const savedScore = savedScores[itemKey];
-            if (savedScore !== undefined && savedScore !== "" && savedScore !== null) {
+            if (
+              savedScore !== undefined &&
+              savedScore !== "" &&
+              savedScore !== null
+            ) {
               acc.self += Number(savedScore);
             }
             acc.reviewer += Number(item.reviewerScore ?? 0);
