@@ -295,8 +295,9 @@ export const useScoreManagement = (
   };
 
   // Auto score → acc.reviewer (GVCN column), không phải acc.self
-  const calculateTotals = () => {
-    return scoreData.reduce(
+  const calculateTotals = (customScoreData) => {
+  const data = customScoreData || scoreData;
+  return data.reduce(
       (acc, section, sectionIdx) => {
         section.criteria.forEach((criterion, criterionIdx) => {
           (criterion.items || []).forEach((item, itemIdx) => {

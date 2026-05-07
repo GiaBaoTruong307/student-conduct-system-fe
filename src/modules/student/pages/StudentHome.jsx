@@ -227,7 +227,7 @@ const StudentHome = () => {
     ? injectGvcnScores(scoreDataWithAuto, gvcnSavedScores, selfScoresForInject)
     : scoreDataWithAuto;
 
-  const totals = calculateTotals();
+  const totals = calculateTotals(scoreData);
 
   const effectiveTimeWindow = isPctsvApproved
     ? { canEdit: false, status: "after", startTime: null, endTime: null }
