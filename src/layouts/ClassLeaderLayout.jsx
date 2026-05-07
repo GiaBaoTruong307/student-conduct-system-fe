@@ -2,16 +2,17 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import useLogout from "../hooks/useLogout";
 import logo from "../assets/images/logo-header.png";
+import { getRoleLabel, getInitials } from "../utils/role";
 
 const NAV_ITEMS = [
-  { label: "Bảng điểm cá nhân",              path: "/class-leader/individual-score" },
+  { label: "Bảng điểm cá nhân", path: "/class-leader/individual-score" },
   { label: "Đơn đề nghị chỉnh điểm cá nhân", path: "/class-leader/appeal" },
-  { label: "Bảng điểm lớp",                  path: "/class-leader/class-score" },
+  { label: "Bảng điểm lớp", path: "/class-leader/class-score" },
 ];
 
-const BCS_NOTIF_KEY      = "bcsNotifications";
+const BCS_NOTIF_KEY = "bcsNotifications";
 const PCTSV_APPROVED_KEY = "pctsvApprovedClasses";
-const LINKED_CLASS_ID    = "48K14.1";
+const LINKED_CLASS_ID = "48K14.1";
 
 const readBcsNotifications = () => {
   try { return JSON.parse(localStorage.getItem(BCS_NOTIF_KEY) || "[]"); }
@@ -19,18 +20,18 @@ const readBcsNotifications = () => {
 };
 
 const saveBcsNotifications = (notifs) => {
-  try { localStorage.setItem(BCS_NOTIF_KEY, JSON.stringify(notifs)); } catch {}
+  try { localStorage.setItem(BCS_NOTIF_KEY, JSON.stringify(notifs)); } catch { }
 };
 
 const syncBcsNotifications = () => {
   try {
-    const existing     = readBcsNotifications();
+    const existing = readBcsNotifications();
     const existingRefs = new Set(existing.map((n) => n.refId));
-    const newNotifs    = [];
+    const newNotifs = [];
 
     const pctsvApproved = JSON.parse(localStorage.getItem(PCTSV_APPROVED_KEY) || "{}");
-    const allYears      = JSON.parse(localStorage.getItem("admin_academic_years") || "[]");
-    const allSemesters  = JSON.parse(localStorage.getItem("admin_academic_semesters") || "{}");
+    const allYears = JSON.parse(localStorage.getItem("admin_academic_years") || "[]");
+    const allSemesters = JSON.parse(localStorage.getItem("admin_academic_semesters") || "{}");
 
     for (const key of Object.keys(pctsvApproved)) {
       if (!key.startsWith(`${LINKED_CLASS_ID}_`)) continue;
@@ -38,12 +39,12 @@ const syncBcsNotifications = () => {
       if (existingRefs.has(refId)) continue;
 
       let yearName = "";
-      let semName  = "";
+      let semName = "";
       for (const y of allYears) {
         for (const s of (allSemesters[y.id] || [])) {
           if (`${LINKED_CLASS_ID}_${y.id}_${s.id}` === key) {
             yearName = y.name;
-            semName  = s.name;
+            semName = s.name;
             break;
           }
         }
@@ -51,13 +52,13 @@ const syncBcsNotifications = () => {
       }
 
       newNotifs.push({
-        id:        `notif_bcs_pctsv_${key}`,
+        id: `notif_bcs_pctsv_${key}`,
         refId,
-        title:     `Điểm lớp ${LINKED_CLASS_ID} đã được PCTSV phê duyệt chính thức`,
-        message:   [semName, yearName && `Năm học ${yearName}`].filter(Boolean).join(" · "),
-        read:      false,
+        title: `Điểm lớp ${LINKED_CLASS_ID} đã được PCTSV phê duyệt chính thức`,
+        message: [semName, yearName && `Năm học ${yearName}`].filter(Boolean).join(" · "),
+        read: false,
         createdAt: new Date().toLocaleDateString("vi-VN"),
-        type:      "pctsv",
+        type: "pctsv",
       });
     }
 
@@ -74,16 +75,16 @@ const ClassLeaderLayout = () => {
   const { pathname } = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [notifications,    setNotifications]    = useState(() => syncBcsNotifications());
-  const [highlightedIds,   setHighlightedIds]   = useState(new Set());
+  const [notifications, setNotifications] = useState(() => syncBcsNotifications());
+  const [highlightedIds, setHighlightedIds] = useState(new Set());
   const [showBellDropdown, setShowBellDropdown] = useState(false);
 
-  const bellRef     = useRef(null);
+  const bellRef = useRef(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const userInfo = {
     name: "Mai Thu Trang",
-    role: "Ban cán sự lớp",
+    role: getRoleLabel(localStorage.getItem("role")),
     initials: "MT",
   };
 
@@ -143,11 +144,10 @@ const ClassLeaderLayout = () => {
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className={`font-medium transition-colors cursor-pointer pb-1 ${
-                    isActive(item.path)
-                      ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
-                      : "text-gray-600 hover:text-[#3d2f6b]"
-                  }`}
+                  className={`font-medium transition-colors cursor-pointer pb-1 ${isActive(item.path)
+                    ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
+                    : "text-gray-600 hover:text-[#3d2f6b]"
+                    }`}
                 >
                   {item.label}
                 </button>
@@ -264,11 +264,10 @@ const ClassLeaderLayout = () => {
                   <button
                     key={item.path}
                     onClick={() => { navigate(item.path); setMobileMenuOpen(false); }}
-                    className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors ${
-                      isActive(item.path)
-                        ? "text-[#3d2f6b] font-semibold bg-purple-50"
-                        : "text-gray-600 hover:bg-gray-50"
-                    }`}
+                    className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors ${isActive(item.path)
+                      ? "text-[#3d2f6b] font-semibold bg-purple-50"
+                      : "text-gray-600 hover:bg-gray-50"
+                      }`}
                   >
                     {item.label}
                   </button>

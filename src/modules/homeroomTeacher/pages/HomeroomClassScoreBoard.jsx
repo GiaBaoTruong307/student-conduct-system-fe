@@ -6,6 +6,8 @@ import { useScoreContext } from "../../../context/ScoreContext";
 import { useTimeWindow } from "../../../hooks/useTimeWindow";
 import { useRoleFilter } from "../../../hooks/useRoleFilter";
 import { ROLES } from "../../../utils/role";
+import { PCTSV_CLASSES } from "../../studentAffairs/constants/studentAffairs.constants";
+import ClassScorePrintModal from "../../../components/ClassScorePrintModal";
 
 const ADMIN_LS_KEYS = {
   YEARS:     "admin_academic_years",
@@ -120,8 +122,8 @@ const HomeroomClassScoreBoard = () => {
 
   const { getStudentPeriodData } = useScoreContext();
 
-  const hasData    = !!selectedYearId && !!selectedSemesterId;
-  const periodKey  = hasData ? `${selectedYearId}_${selectedSemesterId}` : null;
+  const hasData   = !!selectedYearId && !!selectedSemesterId;
+  const periodKey = hasData ? `${selectedYearId}_${selectedSemesterId}` : null;
   const timeWindow = useTimeWindow(selectedYearId, selectedSemesterId, "teacher");
 
   const GVCN_CLASS_ID = "48K14.1";
@@ -146,8 +148,13 @@ const HomeroomClassScoreBoard = () => {
   const allChecked = hasData && classMembers.every((m) => !!checked[m.mssv]);
   const canEdit    = !hasData ? false : (timeWindow.canEdit && !isSubmitted);
 
-  const [toast,            setToast]           = useState({ msg: "", type: "" });
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [toast,             setToast]            = useState({ msg: "", type: "" });
+  const [showConfirmModal,  setShowConfirmModal]  = useState(false);
+  const [showPrintModal,    setShowPrintModal]    = useState(false);
+
+  // Tên GVCN lấy từ danh sách lớp
+  const gvcnClassInfo   = PCTSV_CLASSES.find((c) => c.id === GVCN_CLASS_ID);
+  const gvcnDisplayName = gvcnClassInfo?.gvcn ?? "";
 
   // ── Rescore MSSVs ────────────────────────────────────────────────────────────
   const [rescoreMssvs, setRescoreMssvs] = useState(new Set());
@@ -264,8 +271,25 @@ const HomeroomClassScoreBoard = () => {
     return "-";
   };
 
+  // Build danh sách member kèm điểm để truyền vào print modal
+  const buildPrintMembers = () =>
+    classMembers.map((member, idx) => {
+      const self  = getSelfScore(member, idx);
+      const final = getGvcnScore(member, self);
+      return {
+        mssv:       member.mssv,
+        ho:         member.ho,
+        ten:        member.ten,
+        ngaySinh:   member.ngaySinh,
+        selfScore:  self,
+        finalScore: final,
+      };
+    });
+
   const handleViewDetail = (mssv) => {
-    navigate(`/homeroom-teacher/class-score/${mssv}?yearId=${selectedYearId}&semId=${selectedSemesterId}`);
+    navigate(
+      `/homeroom-teacher/class-score/${mssv}?yearId=${selectedYearId}&semId=${selectedSemesterId}`
+    );
   };
 
   const renderFilterAction = () => {
@@ -337,6 +361,17 @@ const HomeroomClassScoreBoard = () => {
         document.body
       )}
 
+      {showPrintModal && (
+        <ClassScorePrintModal
+          classId={GVCN_CLASS_ID}
+          semesterName={selectedSemester?.name ?? ""}
+          yearName={selectedYear?.name ?? ""}
+          gvcnName={gvcnDisplayName}
+          members={buildPrintMembers()}
+          onClose={() => setShowPrintModal(false)}
+        />
+      )}
+
       <div className="space-y-4 md:space-y-6">
         {toast.msg && (
           <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-semibold text-sm transition-all ${
@@ -375,7 +410,21 @@ const HomeroomClassScoreBoard = () => {
                 ))}
               </select>
             </div>
-            <div className="md:flex md:items-end">{renderFilterAction()}</div>
+            <div className="flex flex-col md:flex-row md:items-end gap-3">
+              {renderFilterAction()}
+              {hasData && (
+                <button
+                  onClick={() => setShowPrintModal(true)}
+                  className="w-full md:w-auto px-5 py-2.5 bg-white border border-[#3d2f6b] text-[#3d2f6b] font-semibold rounded-lg hover:bg-purple-50 transition-colors cursor-pointer flex items-center justify-center gap-2 text-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  In bảng điểm
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

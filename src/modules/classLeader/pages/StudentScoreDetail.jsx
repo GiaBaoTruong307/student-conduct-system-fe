@@ -328,7 +328,7 @@ const StudentScoreDetail = () => {
         </div>
       </div>
 
-      {/* Bảng điểm Desktop */}
+           {/* Bảng điểm Desktop */}
       <ReviewerScoreTableDesktop
         scoreData={scoreData}
         selfScores={selfScores}
@@ -342,6 +342,7 @@ const StudentScoreDetail = () => {
         openNoteModal={openNoteModal}
         selfTotal={selfTotal}
         reviewerTotals={reviewerTotals}
+        mssv={mssv}
       />
 
       {/* Bảng điểm Mobile */}
@@ -359,6 +360,7 @@ const StudentScoreDetail = () => {
         openNoteModal={openNoteModal}
         selfTotal={selfTotal}
         reviewerTotals={reviewerTotals}
+        mssv={mssv}
       />
 
       {/* Buttons dưới cùng */}

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "../auth/Login";
 import ProtectedRoute from "./ProtectedRoute";
 import { ROLES } from "../utils/role";
+import SystemBPage from "../pages/SystemBPage";
 
 // layouts
 import AdminLayout from "../layouts/AdminLayout";
@@ -32,6 +33,7 @@ const RootRedirect = () => {
     case ROLES.HOMEROOM_TEACHER:         return <Navigate to="/homeroom-teacher" replace />;
     case ROLES.STUDENT_AFFAIRS_STAFF:    return <Navigate to="/student-affairs-staff" replace />;
     case ROLES.STUDENT_AFFAIRS_LEADER:   return <Navigate to="/student-affairs-leader" replace />;
+    case ROLES.SYSTEM_B:                 return <Navigate to="/system-b" replace />;
     default:                             return <Navigate to="/login" replace />;
   }
 };
@@ -43,6 +45,16 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={role ? <RootRedirect /> : <Login />} />
+
+      {/* HỆ THỐNG B */}
+      <Route
+        path="/system-b"
+        element={
+          <ProtectedRoute allowedRoles={[ROLES.SYSTEM_B]}>
+            <SystemBPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* ADMIN */}
       <Route

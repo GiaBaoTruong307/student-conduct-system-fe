@@ -1,4 +1,34 @@
 // classLeader/components/ScoreCardsMobile.jsx
+import { getGpaFromSystemB, convertGpaToScore } from "../../../utils/gpaConvert"; // ← THÊM
+
+const AutoScoreCell = ({ mssv }) => {
+  const auto = convertGpaToScore(getGpaFromSystemB(mssv));
+  if (auto === null) return <span className="text-gray-400 italic text-sm">-</span>;
+  return (
+    <div className="flex flex-col items-center leading-tight">
+      <span className="font-bold text-blue-700">{auto}</span>
+      <span className="text-[10px] text-blue-400">HT-B</span>
+    </div>
+  );
+};
+
+const AutoNoteCell = ({ mssv, note }) => {
+  const gpa = getGpaFromSystemB(mssv);
+  const auto = convertGpaToScore(gpa);
+  return (
+    <div className="text-xs space-y-1">
+      <div className="text-gray-400 italic">{note}</div>
+      {gpa !== null ? (
+        <div className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap">
+          🔗 HT-B · ĐTB: {gpa} → {auto}đ
+        </div>
+      ) : (
+        <div className="text-amber-500 text-[11px] italic">⏳ Chờ Hệ thống B</div>
+      )}
+    </div>
+  );
+};
+
 const ScoreCardsMobile = ({
   scoreData,
   totals,
@@ -12,6 +42,7 @@ const ScoreCardsMobile = ({
   handleUploadClick,
   handleImageClick,
   handleRemoveTempImage,
+  mssv = null, // ← THÊM
 }) => {
   return (
     <div className="lg:hidden space-y-4">
@@ -48,7 +79,6 @@ const ScoreCardsMobile = ({
                 key={`mobile-criterion-${sectionIdx}-${criterionIdx}`}
                 className="space-y-3"
               >
-                {/* Criterion Title — chỉ render khi có title */}
                 {criterion.title && (
                   <div className="flex gap-2">
                     <span className="font-semibold text-gray-700 italic text-sm">
@@ -73,7 +103,6 @@ const ScoreCardsMobile = ({
                       className="pl-6 space-y-2 border-l-2 border-gray-200"
                     >
                       <div className="text-sm text-gray-700 whitespace-pre-line">
-                        {/* Khi không có criterion title → prefix chữ cái vào dòng item */}
                         {!criterion.title && criterion.id && (
                           <span className="font-semibold italic text-gray-500 mr-1">
                             {criterion.id}
@@ -90,8 +119,9 @@ const ScoreCardsMobile = ({
                         <div className="text-center">
                           <div className="text-gray-600">SV</div>
                           <div className="font-semibold">
+                            {/* ← SỬA */}
                             {item.note ? (
-                              <span className="text-gray-400 italic">-</span>
+                              <AutoScoreCell mssv={mssv} />
                             ) : isEditing ? (
                               <input
                                 type="number"
@@ -121,8 +151,9 @@ const ScoreCardsMobile = ({
                         </div>
                       </div>
 
+                      {/* ← SỬA */}
                       {item.note ? (
-                        <div className="text-xs text-gray-500 italic">{item.note}</div>
+                        <AutoNoteCell mssv={mssv} note={item.note} />
                       ) : (
                         <div className="space-y-2">
                           {isEditing && (

@@ -1,4 +1,38 @@
 import React from "react";
+import { getGpaFromSystemB, convertGpaToScore } from "../../../utils/gpaConvert";
+
+// Hiển thị điểm auto trong cột GVCN cho note items
+const AutoGvcnCell = ({ mssv }) => {
+  const gpa = getGpaFromSystemB(mssv);
+  const auto = convertGpaToScore(gpa);
+  if (gpa === null) {
+    return <span className="text-amber-500 text-xs italic">⏳ Chờ HT-B</span>;
+  }
+  return (
+    <div className="flex flex-col items-center leading-tight">
+      <span className="font-bold text-blue-700">{auto}</span>
+      <span className="text-[10px] text-blue-400">HT-B</span>
+    </div>
+  );
+};
+
+// Hiển thị thông tin GPA trong cột Minh chứng cho note items
+const AutoNoteCell = ({ mssv, note }) => {
+  const gpa = getGpaFromSystemB(mssv);
+  const auto = convertGpaToScore(gpa);
+  return (
+    <div className="text-xs space-y-1">
+      <div className="text-gray-400 italic">{note}</div>
+      {gpa !== null ? (
+        <div className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap">
+          🔗 HT-B · ĐTB: {gpa} → {auto}đ
+        </div>
+      ) : (
+        <div className="text-amber-500 text-[11px] italic">⏳ Chờ Hệ thống B</div>
+      )}
+    </div>
+  );
+};
 
 const ScoreTableDesktop = ({
   scoreData,
@@ -13,6 +47,7 @@ const ScoreTableDesktop = ({
   handleUploadClick,
   handleImageClick,
   handleRemoveTempImage,
+  mssv = null,
 }) => {
   return (
     <div className="hidden lg:block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -65,7 +100,6 @@ const ScoreTableDesktop = ({
                   const hasSubs = criterion.title !== null;
                   const hasTitle = hasSubs && criterion.title !== "";
 
-                  // No sub-criteria — single item spanning 2 content columns
                   if (!hasSubs) {
                     return criterion.items.map((item, itemIdx) => {
                       const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
@@ -95,11 +129,17 @@ const ScoreTableDesktop = ({
                             ) : displayScore !== "" ? displayScore : "-"}
                           </td>
                           <td className="px-4 py-2 text-center border-r border-gray-200">
-                            {item.reviewerScore !== null && item.reviewerScore !== undefined ? item.reviewerScore : "-"}
+                            {item.note ? (
+                              <AutoGvcnCell mssv={mssv} />
+                            ) : (
+                              item.reviewerScore !== null && item.reviewerScore !== undefined
+                                ? item.reviewerScore
+                                : "-"
+                            )}
                           </td>
                           <td className="px-4 py-2 text-center">
                             {item.note ? (
-                              <span className="text-xs text-gray-400 italic">{item.note}</span>
+                              <AutoNoteCell mssv={mssv} note={item.note} />
                             ) : (
                               <>
                                 {isEditing && (
@@ -144,10 +184,8 @@ const ScoreTableDesktop = ({
                     });
                   }
 
-                  // Has sub-criteria
                   const rows = [];
 
-                  // Điều 4 case: has parent title → title row + id rowspans items+1
                   if (hasTitle) {
                     rows.push(
                       <tr key={`cr-${criterionIdx}-title`} className="border-t border-gray-100 bg-gray-50/40">
@@ -175,7 +213,6 @@ const ScoreTableDesktop = ({
 
                     rows.push(
                       <tr key={itemKey} className="border-t border-gray-100">
-                        {/* Điều 1 case: no parent title → id spans all items, rendered on first row only */}
                         {!hasTitle && isFirst && (
                           <td
                             rowSpan={criterion.items.length}
@@ -202,11 +239,17 @@ const ScoreTableDesktop = ({
                           ) : displayScore !== "" ? displayScore : "-"}
                         </td>
                         <td className="px-4 py-2 text-center border-r border-gray-200">
-                          {item.reviewerScore !== null && item.reviewerScore !== undefined ? item.reviewerScore : "-"}
+                          {item.note ? (
+                            <AutoGvcnCell mssv={mssv} />
+                          ) : (
+                            item.reviewerScore !== null && item.reviewerScore !== undefined
+                              ? item.reviewerScore
+                              : "-"
+                          )}
                         </td>
                         <td className="px-4 py-2 text-center">
                           {item.note ? (
-                            <span className="text-xs text-gray-400 italic">{item.note}</span>
+                            <AutoNoteCell mssv={mssv} note={item.note} />
                           ) : (
                             <>
                               {isEditing && (

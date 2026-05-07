@@ -11,6 +11,7 @@ import MinhChungModal from "../components/MinhChungModal";
 import { useTimeWindow } from "../../../hooks/useTimeWindow";
 import { useRoleFilter } from "../../../hooks/useRoleFilter";
 import { ROLES } from "../../../utils/role";
+import { getAutoScoreFromSystemB } from "../../../utils/gpaConvert";
 
 const LS_KEYS = {
   YEARS: "admin_academic_years",
@@ -88,12 +89,34 @@ const transformToScoreData = (adminSections) =>
       };
     });
 
+// Inject điểm tự động từ Hệ thống B vào reviewerScore của note items
+const injectAutoScores = (scoreData, mssv) => {
+  const auto = getAutoScoreFromSystemB(mssv);
+  return scoreData.map((section) => {
+    let autoAdd = 0;
+    const criteria = section.criteria.map((criterion) => {
+      const items = criterion.items.map((item) => {
+        if (!item.note) return item;
+        const score = auto !== null ? auto : 0;
+        autoAdd += score;
+        return { ...item, reviewerScore: score };
+      });
+      return { ...criterion, items };
+    });
+    return { ...section, criteria, reviewerScore: (section.reviewerScore || 0) + autoAdd };
+  });
+};
+
+// Inject điểm GVCN (khi PCTSV đã duyệt), giữ nguyên auto score cho note items
 const injectGvcnScores = (scoreData, gvcnSavedScores, selfScores) =>
   scoreData.map((section, sectionIdx) => {
     let sectionGvcnTotal = 0;
     const criteria = section.criteria.map((criterion, criterionIdx) => {
       const items = criterion.items.map((item, itemIdx) => {
-        if (item.note) return item;
+        if (item.note) {
+          sectionGvcnTotal += Number(item.reviewerScore || 0);
+          return item;
+        }
         const key = `${sectionIdx}-${criterionIdx}-${itemIdx}`;
         const score =
           gvcnSavedScores[key] !== undefined
@@ -111,6 +134,9 @@ const StudentHome = () => {
   const allYears      = readLS(LS_KEYS.YEARS, []);
   const allSemesters  = readLS(LS_KEYS.SEMESTERS, {});
   const adminCriteria = readLS(LS_KEYS.CRITERIA, []);
+
+  // Luôn dùng LINKED_MSSV — username login chỉ là thông tin đăng nhập, không phải MSSV
+  const mssv = LINKED_MSSV;
 
   const [filter, updateFilter] = useRoleFilter(ROLES.STUDENT, {
     yearId: "",
@@ -182,7 +208,8 @@ const StudentHome = () => {
     selectedYearId,
     selectedSemesterId,
     hasDataForCurrentPeriod,
-    timeWindow
+    timeWindow,
+    mssv
   );
 
   const selfScoresForInject = (() => {
@@ -194,9 +221,11 @@ const StudentHome = () => {
     } catch { return {}; }
   })();
 
+  // Luôn inject auto score, thêm GVCN scores nếu đã duyệt
+  const scoreDataWithAuto = injectAutoScores(baseScoreData, mssv);
   const scoreData = isPctsvApproved
-    ? injectGvcnScores(baseScoreData, gvcnSavedScores, selfScoresForInject)
-    : baseScoreData;
+    ? injectGvcnScores(scoreDataWithAuto, gvcnSavedScores, selfScoresForInject)
+    : scoreDataWithAuto;
 
   const totals = calculateTotals();
 
@@ -256,6 +285,7 @@ const StudentHome = () => {
             handleUploadClick={handleUploadClick}
             handleImageClick={handleImageClick}
             handleRemoveTempImage={handleRemoveTempImage}
+            mssv={mssv}
           />
 
           <ScoreCardsMobile
@@ -271,6 +301,7 @@ const StudentHome = () => {
             handleUploadClick={handleUploadClick}
             handleImageClick={handleImageClick}
             handleRemoveTempImage={handleRemoveTempImage}
+            mssv={mssv}
           />
 
           <div className="flex justify-center md:justify-end">

@@ -2,10 +2,11 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import useLogout from "../hooks/useLogout";
 import logo from "../assets/images/logo-header.png";
+import { getRoleLabel, getInitials } from "../utils/role";
 
-const GVCN_REQUESTS_KEY    = "gvcnAdjustmentRequests";
+const GVCN_REQUESTS_KEY = "gvcnAdjustmentRequests";
 const STUDENT_REQUESTS_KEY = "studentAdjustmentRequests";
-const NOTIF_KEY            = "pctsvNotifications";
+const NOTIF_KEY = "pctsvNotifications";
 
 const NAV_ITEMS = [
   {
@@ -86,11 +87,11 @@ const NAV_ITEMS = [
 
 const readPendingRequests = () => {
   try {
-    const gvcnReqs    = JSON.parse(localStorage.getItem(GVCN_REQUESTS_KEY)    || "[]");
+    const gvcnReqs = JSON.parse(localStorage.getItem(GVCN_REQUESTS_KEY) || "[]");
     const studentReqs = JSON.parse(localStorage.getItem(STUDENT_REQUESTS_KEY) || "[]");
-    const fromGvcn    = gvcnReqs.filter((r) => r.trangThai === "khoa-duyet");
+    const fromGvcn = gvcnReqs.filter((r) => r.trangThai === "khoa-duyet");
     const fromRescore = gvcnReqs.filter((r) => r.trangThai === "rescore-khoa-duyet");
-    const coveredIds  = new Set(fromGvcn.map((r) => r.studentRequestId).filter(Boolean));
+    const coveredIds = new Set(fromGvcn.map((r) => r.studentRequestId).filter(Boolean));
     const fromStudent = studentReqs.filter(
       (r) => r.trangThai === "khoa-duyet" && !coveredIds.has(r.id)
     );
@@ -104,11 +105,11 @@ const readNotifications = () => {
 };
 
 const saveNotifications = (notifs) => {
-  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch {}
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch { }
 };
 
 const syncNotifications = (pendingReqs) => {
-  const existing       = readNotifications();
+  const existing = readNotifications();
   const existingRefIds = new Set(existing.map((n) => n.refId));
   const newNotifs = pendingReqs
     .filter((req) => {
@@ -117,18 +118,18 @@ const syncNotifications = (pendingReqs) => {
     })
     .map((req) => {
       const isRescore = req.trangThai === "rescore-khoa-duyet";
-      const refId     = isRescore ? `rescore_${req.id}` : req.id;
+      const refId = isRescore ? `rescore_${req.id}` : req.id;
       return {
-        id:        `notif_pctsv_${isRescore ? "rescore_" : ""}${req.id}`,
-        type:      isRescore ? "rescore_request" : "adjustment_request",
+        id: `notif_pctsv_${isRescore ? "rescore_" : ""}${req.id}`,
+        type: isRescore ? "rescore_request" : "adjustment_request",
         refId,
-        title:     isRescore
+        title: isRescore
           ? `Kết quả chấm lại của GVCN #${req.id}`
           : `Đơn đề nghị điều chỉnh điểm #${req.id}`,
-        message:   isRescore
+        message: isRescore
           ? ["Khoa đã duyệt kết quả chấm lại, chờ PCTSV xác nhận", req.hocKy, req.namHoc, req.ngayTao].filter(Boolean).join(" · ")
           : ["Khoa đã duyệt, chờ PCTSV xử lý", req.hocKy, req.namHoc, req.ngayTao].filter(Boolean).join(" · "),
-        read:      false,
+        read: false,
         createdAt: req.ngayTao || "",
       };
     });
@@ -141,22 +142,22 @@ const syncNotifications = (pendingReqs) => {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const StudentAffairsLeaderLayout = () => {
-  const logout   = useLogout();
+  const logout = useLogout();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const [pendingCount,     setPendingCount]     = useState(() => readPendingRequests().length);
-  const [notifications,    setNotifications]    = useState(() => syncNotifications(readPendingRequests()));
-  const [highlightedIds,   setHighlightedIds]   = useState(new Set());
+  const [pendingCount, setPendingCount] = useState(() => readPendingRequests().length);
+  const [notifications, setNotifications] = useState(() => syncNotifications(readPendingRequests()));
+  const [highlightedIds, setHighlightedIds] = useState(new Set());
   const [showBellDropdown, setShowBellDropdown] = useState(false);
 
-  const bellRef     = useRef(null);
+  const bellRef = useRef(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const userInfo = {
-    name:     "Nguyễn Lê Na",
-    role:     "Lãnh đạo PCTSV",
+    name: "Nguyễn Lê Na",
+    role: getRoleLabel(localStorage.getItem("role")),
     initials: "LN",
   };
 
@@ -170,10 +171,10 @@ const StudentAffairsLeaderLayout = () => {
       setNotifications(syncNotifications(pending));
     };
     window.addEventListener("khoaRequestsUpdated", handleUpdate);
-    window.addEventListener("khoaRescoreUpdated",  handleUpdate);
+    window.addEventListener("khoaRescoreUpdated", handleUpdate);
     return () => {
       window.removeEventListener("khoaRequestsUpdated", handleUpdate);
-      window.removeEventListener("khoaRescoreUpdated",  handleUpdate);
+      window.removeEventListener("khoaRescoreUpdated", handleUpdate);
     };
   }, []);
 
@@ -346,7 +347,7 @@ const StudentAffairsLeaderLayout = () => {
                     ) : (
                       <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
                         {notifications.map((notif) => {
-                          const isNew     = highlightedIds.has(notif.id);
+                          const isNew = highlightedIds.has(notif.id);
                           const isRescore = notif.type === "rescore_request";
                           return (
                             <button

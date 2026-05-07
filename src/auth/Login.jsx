@@ -29,6 +29,7 @@ const Login = () => {
 
     clearRoleFilter(actualRole);
     localStorage.setItem("role", actualRole);
+    localStorage.setItem("username", form.username);
 
     switch (actualRole) {
       case ROLES.ADMIN:
@@ -48,6 +49,9 @@ const Login = () => {
         break;
       case ROLES.STUDENT_AFFAIRS_LEADER:
         navigate("/student-affairs-leader");
+        break;
+      case ROLES.SYSTEM_B:
+        navigate("/system-b");
         break;
       case ROLES.STUDENT:
         navigate("/student/individual-score");
@@ -125,7 +129,8 @@ const Login = () => {
                 <option value={ROLES.CLASS_LEADER}>Ban cán sự</option>
                 <option value={ROLES.HOMEROOM_TEACHER}>Giảng viên chủ nhiệm</option>
                 <option value={ROLES.FACULTY_STAFF}>Lãnh đạo Khoa</option>
-                <option value={ROLES.STUDENT_AFFAIRS}>Phòng Công tác sinh viên, Quan hệ  doanh nghiệp và Truyền thông </option>
+                <option value={ROLES.STUDENT_AFFAIRS}>Phòng Công tác sinh viên, Quan hệ doanh nghiệp và Truyền thông</option>
+                <option value={ROLES.SYSTEM_B}>Hệ thống B (Quản lý Đào tạo)</option>
                 <option value={ROLES.ADMIN}>Admin</option>
               </select>
             </div>

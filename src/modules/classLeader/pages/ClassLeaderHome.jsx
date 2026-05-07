@@ -86,6 +86,8 @@ const ClassLeaderHome = () => {
   const allSemesters = readLS(ADMIN_LS_KEYS.SEMESTERS, {});
   const adminCriteria = readLS(ADMIN_LS_KEYS.CRITERIA, []);
 
+  const mssv = localStorage.getItem("username");
+
   const [selectedYearId, setSelectedYearId] = useState("");
   const [selectedSemesterId, setSelectedSemesterId] = useState("");
 
@@ -183,6 +185,7 @@ const ClassLeaderHome = () => {
             handleUploadClick={handleUploadClick}
             handleImageClick={handleImageClick}
             handleRemoveTempImage={handleRemoveTempImage}
+            mssv={mssv}
           />
 
           <ScoreCardsMobile
@@ -198,6 +201,7 @@ const ClassLeaderHome = () => {
             handleUploadClick={handleUploadClick}
             handleImageClick={handleImageClick}
             handleRemoveTempImage={handleRemoveTempImage}
+            mssv={mssv}
           />
 
           <div className="flex justify-center md:justify-end">

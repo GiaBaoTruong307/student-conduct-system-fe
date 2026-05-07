@@ -2,17 +2,16 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import useLogout from "../hooks/useLogout";
 import logo from "../assets/images/logo-header.png";
+import { getRoleLabel, getInitials } from "../utils/role";
 
 const STUDENT_REQUESTS_KEY = "studentAdjustmentRequests";
-const GVCN_REQUESTS_KEY    = "gvcnAdjustmentRequests";
-const NOTIF_KEY            = "gvcnNotifications";
+const GVCN_REQUESTS_KEY = "gvcnAdjustmentRequests";
+const NOTIF_KEY = "gvcnNotifications";
 
 const NAV_ITEMS = [
   { label: "Bảng điểm lớp chủ nhiệm", path: "/homeroom-teacher/class-score" },
-  { label: "Đề nghị điều chỉnh điểm",  path: "/homeroom-teacher/adjustment" },
+  { label: "Đề nghị điều chỉnh điểm", path: "/homeroom-teacher/adjustment" },
 ];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const readPendingRequests = () => {
   try {
@@ -27,24 +26,24 @@ const readNotifications = () => {
 };
 
 const saveNotifications = (notifs) => {
-  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch {}
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch { }
 };
 
 const syncNotifications = (pendingReqs) => {
-  const existing     = readNotifications();
+  const existing = readNotifications();
   const existingRefs = new Set(existing.map((n) => n.refId));
 
   // Part 1: incoming student requests chờ GVCN duyệt
   const incomingNotifs = pendingReqs
     .filter((req) => !existingRefs.has(req.id))
     .map((req) => ({
-      id:        `notif_adj_${req.id}`,
-      refId:     req.id,
-      type:      "student-pending",
-      title:     `Đơn đề nghị điều chỉnh điểm #${req.id}`,
-      message:   ["Sinh viên gửi đơn chờ duyệt", req.hocKy, req.namHoc, req.ngayTao]
+      id: `notif_adj_${req.id}`,
+      refId: req.id,
+      type: "student-pending",
+      title: `Đơn đề nghị điều chỉnh điểm #${req.id}`,
+      message: ["Sinh viên gửi đơn chờ duyệt", req.hocKy, req.namHoc, req.ngayTao]
         .filter(Boolean).join(" · "),
-      read:      false,
+      read: false,
       createdAt: req.ngayTao || "",
     }));
 
@@ -61,12 +60,12 @@ const syncNotifications = (pendingReqs) => {
     const refId = `gvcn_status_${req.id}_khoa-duyet`;
     if (existingRefs.has(refId)) continue;
     statusNotifs.push({
-      id:        `notif_gvcn_${req.id}_khoa-duyet`,
+      id: `notif_gvcn_${req.id}_khoa-duyet`,
       refId,
-      type:      "khoa-approved",
-      title:     `Khoa đã duyệt đơn đề nghị #${req.id}`,
-      message:   [req.hocKy, req.namHoc, req.ngayTao].filter(Boolean).join(" · "),
-      read:      false,
+      type: "khoa-approved",
+      title: `Khoa đã duyệt đơn đề nghị #${req.id}`,
+      message: [req.hocKy, req.namHoc, req.ngayTao].filter(Boolean).join(" · "),
+      read: false,
       createdAt: req.ngayTao || "",
     });
   }
@@ -78,30 +77,27 @@ const syncNotifications = (pendingReqs) => {
   return updated;
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 const HomeroomTeacherLayout = () => {
-  const logout   = useLogout();
+  const logout = useLogout();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [pendingCount,     setPendingCount]     = useState(() => readPendingRequests().length);
-  const [notifications,    setNotifications]    = useState(() => syncNotifications(readPendingRequests()));
-  const [highlightedIds,   setHighlightedIds]   = useState(new Set());
+  const [pendingCount, setPendingCount] = useState(() => readPendingRequests().length);
+  const [notifications, setNotifications] = useState(() => syncNotifications(readPendingRequests()));
+  const [highlightedIds, setHighlightedIds] = useState(new Set());
   const [showBellDropdown, setShowBellDropdown] = useState(false);
-  const [showLoginPopup,   setShowLoginPopup]   = useState(false);
+  const [showLoginPopup, setShowLoginPopup] = useState(false);
 
-  const bellRef         = useRef(null);
+  const bellRef = useRef(null);
   const loginPopupShown = useRef(false);
-  const unreadCount     = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   const userInfo = {
-    name:     "Nguyễn Văn Sơn",
-    role:     "Giáo viên chủ nhiệm",
+    name: "Nguyễn Văn Sơn",
+    role: getRoleLabel(localStorage.getItem("role")),
     initials: "NS",
   };
-
   const isActive = (path) => pathname.startsWith(path);
 
   useEffect(() => {
@@ -124,13 +120,13 @@ const HomeroomTeacherLayout = () => {
       setNotifications(readNotifications());
     };
 
-    window.addEventListener("studentRequestsUpdated",  handleIncoming);
-    window.addEventListener("gvcnStatusUpdated",       handleStatusUpdate);
-    window.addEventListener("pctsvApprovedRescore",    handlePctsvRescore);
+    window.addEventListener("studentRequestsUpdated", handleIncoming);
+    window.addEventListener("gvcnStatusUpdated", handleStatusUpdate);
+    window.addEventListener("pctsvApprovedRescore", handlePctsvRescore);
     return () => {
-      window.removeEventListener("studentRequestsUpdated",  handleIncoming);
-      window.removeEventListener("gvcnStatusUpdated",       handleStatusUpdate);
-      window.removeEventListener("pctsvApprovedRescore",    handlePctsvRescore);
+      window.removeEventListener("studentRequestsUpdated", handleIncoming);
+      window.removeEventListener("gvcnStatusUpdated", handleStatusUpdate);
+      window.removeEventListener("pctsvApprovedRescore", handlePctsvRescore);
     };
   }, []);
 
@@ -232,11 +228,10 @@ const HomeroomTeacherLayout = () => {
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer pb-1 ${
-                      isActive(item.path)
-                        ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
-                        : "text-gray-600 hover:text-[#3d2f6b]"
-                    }`}
+                    className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer pb-1 ${isActive(item.path)
+                      ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
+                      : "text-gray-600 hover:text-[#3d2f6b]"
+                      }`}
                   >
                     {item.label}
                     {isAdjustment && pendingCount > 0 && (
@@ -279,24 +274,22 @@ const HomeroomTeacherLayout = () => {
                     ) : (
                       <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
                         {notifications.map((notif) => {
-                          const isNew      = highlightedIds.has(notif.id);
-                          const isRescore  = notif.type === "pctsv-approved-rescore";
+                          const isNew = highlightedIds.has(notif.id);
+                          const isRescore = notif.type === "pctsv-approved-rescore";
                           return (
                             <button
                               key={notif.id}
                               onClick={() => handleNotifClick(notif)}
-                              className={`w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors cursor-pointer ${
-                                isRescore
-                                  ? isNew ? "bg-blue-50/60" : "bg-white"
-                                  : isNew ? "bg-orange-50/60" : "bg-white"
-                              }`}
+                              className={`w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors cursor-pointer ${isRescore
+                                ? isNew ? "bg-blue-50/60" : "bg-white"
+                                : isNew ? "bg-orange-50/60" : "bg-white"
+                                }`}
                             >
                               <div className="flex items-start gap-2.5">
-                                <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${
-                                  isNew
-                                    ? isRescore ? "bg-blue-500" : "bg-orange-500"
-                                    : "bg-gray-300"
-                                }`} />
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${isNew
+                                  ? isRescore ? "bg-blue-500" : "bg-orange-500"
+                                  : "bg-gray-300"
+                                  }`} />
                                 <div className="flex-1 min-w-0">
                                   <p className={`text-sm font-semibold ${isNew ? "text-gray-800" : "text-gray-500"}`}>
                                     {notif.title}
@@ -367,9 +360,8 @@ const HomeroomTeacherLayout = () => {
                     <button
                       key={item.path}
                       onClick={() => { navigate(item.path); setMobileMenuOpen(false); }}
-                      className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2 ${
-                        isActive(item.path) ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
-                      }`}
+                      className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2 ${isActive(item.path) ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
+                        }`}
                     >
                       {item.label}
                       {isAdjustment && pendingCount > 0 && (

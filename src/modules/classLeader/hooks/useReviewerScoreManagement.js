@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useScoreContext } from "../../../context/ScoreContext";
+import { getAutoScoreFromSystemB } from "../../../utils/gpaConvert"; // ← THÊM
 
 const CHECKED_KEY = "classBoardChecked";
 
@@ -15,7 +16,6 @@ export const useReviewerScoreManagement = (scoreData, mssv, yearId, semId) => {
   const [noteModalKey, setNoteModalKey] = useState(null);
   const [isDraft, setIsDraft] = useState(false);
 
-  // Load / reset data when period or mssv changes
   useEffect(() => {
     if (!yearId || !semId || !mssv) {
       setSavedReviewerScores({});
@@ -46,12 +46,17 @@ export const useReviewerScoreManagement = (scoreData, mssv, yearId, semId) => {
   const getItemKey = (sectionIdx, criterionIdx, itemIdx) =>
     `${sectionIdx}-${criterionIdx}-${itemIdx}`;
 
+  // ← SỬA: bổ sung auto-score cho note items
   const calculateReviewerSectionScore = (sectionIdx) => {
     const section = scoreData[sectionIdx];
     let total = 0;
     section.criteria.forEach((criterion, criterionIdx) => {
       criterion.items.forEach((item, itemIdx) => {
-        if (item.note) return;
+        if (item.note) {
+          const auto = getAutoScoreFromSystemB(mssv);
+          if (auto !== null) total += auto;
+          return;
+        }
         const key = getItemKey(sectionIdx, criterionIdx, itemIdx);
         const source = isEditing ? tempReviewerScores : savedReviewerScores;
         const score = source[key];
@@ -92,22 +97,26 @@ export const useReviewerScoreManagement = (scoreData, mssv, yearId, semId) => {
 
   const handleSave = () => setShowConfirmModal(true);
 
-  // Lưu tạm: lưu tiến độ, KHÔNG auto-tick checkbox
   const handleSaveDraft = () => {
     const filteredScores = {};
     Object.keys(tempReviewerScores).forEach((key) => {
-      if (
-        tempReviewerScores[key] !== "" &&
-        tempReviewerScores[key] !== undefined &&
-        tempReviewerScores[key] !== null
-      ) {
+      if (tempReviewerScores[key] !== "" && tempReviewerScores[key] !== undefined && tempReviewerScores[key] !== null) {
         filteredScores[key] = tempReviewerScores[key];
       }
     });
-    const total = Object.values(filteredScores).reduce(
-      (sum, v) => sum + Number(v),
-      0
-    );
+
+    // ← SỬA: cộng auto-score vào total
+    let total = Object.values(filteredScores).reduce((sum, v) => sum + Number(v), 0);
+    scoreData.forEach((section) => {
+      section.criteria.forEach((criterion) => {
+        criterion.items.forEach((item) => {
+          if (!item.note) return;
+          const auto = getAutoScoreFromSystemB(mssv);
+          if (auto !== null) total += auto;
+        });
+      });
+    });
+
     const newNotes = { ...tempNotes };
 
     setSavedReviewerScores(filteredScores);
@@ -125,22 +134,26 @@ export const useReviewerScoreManagement = (scoreData, mssv, yearId, semId) => {
     });
   };
 
-  // Lưu hoàn tất: auto-tick checkbox trong ClassScoreBoard
   const handleConfirmSave = () => {
     const filteredScores = {};
     Object.keys(tempReviewerScores).forEach((key) => {
-      if (
-        tempReviewerScores[key] !== "" &&
-        tempReviewerScores[key] !== undefined &&
-        tempReviewerScores[key] !== null
-      ) {
+      if (tempReviewerScores[key] !== "" && tempReviewerScores[key] !== undefined && tempReviewerScores[key] !== null) {
         filteredScores[key] = tempReviewerScores[key];
       }
     });
-    const total = Object.values(filteredScores).reduce(
-      (sum, v) => sum + Number(v),
-      0
-    );
+
+    // ← SỬA: cộng auto-score vào total
+    let total = Object.values(filteredScores).reduce((sum, v) => sum + Number(v), 0);
+    scoreData.forEach((section) => {
+      section.criteria.forEach((criterion) => {
+        criterion.items.forEach((item) => {
+          if (!item.note) return;
+          const auto = getAutoScoreFromSystemB(mssv);
+          if (auto !== null) total += auto;
+        });
+      });
+    });
+
     const newNotes = { ...tempNotes };
 
     setSavedReviewerScores(filteredScores);
@@ -158,7 +171,6 @@ export const useReviewerScoreManagement = (scoreData, mssv, yearId, semId) => {
       isDraft: false,
     });
 
-    // Auto-tick checkbox trong ClassScoreBoard
     if (yearId && semId && mssv) {
       try {
         const periodKey = `${yearId}_${semId}`;
@@ -182,15 +194,22 @@ export const useReviewerScoreManagement = (scoreData, mssv, yearId, semId) => {
       (n) => n !== "" && n !== undefined && n !== null
     );
 
+  // ← SỬA: bổ sung auto-score vào totals
   const calculateReviewerTotals = () => {
     return scoreData.reduce(
       (acc, section) => {
         section.criteria.forEach((criterion) => {
-          criterion.items.forEach((item, itemIdx) => {
+          criterion.items.forEach((item) => {
             const sectionIdx = scoreData.indexOf(section);
             const criterionIdx = section.criteria.indexOf(criterion);
+            const itemIdx = criterion.items.indexOf(item);
             const key = getItemKey(sectionIdx, criterionIdx, itemIdx);
             acc.max += Number(item.maxScore || 0);
+            if (item.note) {
+              const auto = getAutoScoreFromSystemB(mssv);
+              if (auto !== null) acc.reviewer += auto;
+              return;
+            }
             const s = savedReviewerScores[key];
             if (s !== undefined && s !== "" && s !== null)
               acc.reviewer += Number(s);
@@ -203,28 +222,23 @@ export const useReviewerScoreManagement = (scoreData, mssv, yearId, semId) => {
   };
 
   const openNoteModal = (itemKey) => setNoteModalKey(itemKey);
-
+  const closeNoteModal = () => setNoteModalKey(null);
+  const getNote = (itemKey) => {
+    if (isEditing) return tempNotes[itemKey] || "";
+    return savedNotes[itemKey] || "";
+  };
   const handleSaveNote = (text) => {
-    const key = noteModalKey;
-    if (isEditing) {
-      setTempNotes((prev) => ({ ...prev, [key]: text }));
+    if (noteModalKey === null) return;
+    if (text && text.trim()) {
+      setTempNotes((prev) => ({ ...prev, [noteModalKey]: text }));
     } else {
-      const newNotes = { ...savedNotes, [key]: text };
-      setSavedNotes(newNotes);
-      const existing = getReviewerPeriodData(yearId, semId)[mssv] ?? {
-        savedScores: {},
-        total: 0,
-      };
-      setReviewerForPeriod(yearId, semId, mssv, { ...existing, notes: newNotes });
+      setTempNotes((prev) => {
+        const next = { ...prev };
+        delete next[noteModalKey];
+        return next;
+      });
     }
     setNoteModalKey(null);
-  };
-
-  const closeNoteModal = () => setNoteModalKey(null);
-
-  const getNote = (itemKey) => {
-    const source = isEditing ? tempNotes : savedNotes;
-    return source[itemKey] || "";
   };
 
   return {
@@ -234,8 +248,8 @@ export const useReviewerScoreManagement = (scoreData, mssv, yearId, semId) => {
     noteModalKey,
     getItemKey,
     calculateReviewerSectionScore,
-    handleReviewerScoreChange,
     getReviewerDisplayScore,
+    handleReviewerScoreChange,
     handleStartScoring,
     handleSave,
     handleSaveDraft,

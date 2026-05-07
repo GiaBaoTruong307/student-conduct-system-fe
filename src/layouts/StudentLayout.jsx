@@ -2,11 +2,12 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import useLogout from "../hooks/useLogout";
 import logo from "../assets/images/logo-header.png";
+import { getRoleLabel, getInitials } from "../utils/role";
 
-const NOTIF_KEY          = "studentNotifications";
+const NOTIF_KEY = "studentNotifications";
 const PCTSV_APPROVED_KEY = "pctsvApprovedClasses";
-const LINKED_CLASS_ID    = "48K14.1";
-const ADJUSTMENT_PATH    = "/student/adjustment-request";
+const LINKED_CLASS_ID = "48K14.1";
+const ADJUSTMENT_PATH = "/student/adjustment-request";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -16,31 +17,31 @@ const readNotifications = () => {
 };
 
 const saveNotifications = (notifs) => {
-  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch {}
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch { }
 };
 
 const nowStr = () => {
-  const d    = new Date();
-  const dd   = String(d.getDate()).padStart(2, "0");
-  const mm   = String(d.getMonth() + 1).padStart(2, "0");
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
-  const hh   = String(d.getHours()).padStart(2, "0");
-  const min  = String(d.getMinutes()).padStart(2, "0");
-  const ss   = String(d.getSeconds()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
   return `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
 };
 
 // Chỉ sync thông báo PCTSV phê duyệt điểm cả lớp (push-based cho đơn chỉnh điểm)
 const syncStudentNotifications = () => {
   try {
-    const existing     = readNotifications();
+    const existing = readNotifications();
     const existingRefs = new Set(existing.map((n) => n.refId));
-    const newNotifs    = [];
+    const newNotifs = [];
 
     // ── Thông báo PCTSV phê duyệt điểm cả lớp ────────────────────────────
     const pctsvApproved = JSON.parse(localStorage.getItem(PCTSV_APPROVED_KEY) || "{}");
-    const allYears      = JSON.parse(localStorage.getItem("admin_academic_years") || "[]");
-    const allSemesters  = JSON.parse(localStorage.getItem("admin_academic_semesters") || "{}");
+    const allYears = JSON.parse(localStorage.getItem("admin_academic_years") || "[]");
+    const allSemesters = JSON.parse(localStorage.getItem("admin_academic_semesters") || "{}");
 
     for (const key of Object.keys(pctsvApproved)) {
       if (!key.startsWith(`${LINKED_CLASS_ID}_`)) continue;
@@ -48,12 +49,12 @@ const syncStudentNotifications = () => {
       if (existingRefs.has(refId)) continue;
 
       let yearName = "";
-      let semName  = "";
+      let semName = "";
       for (const y of allYears) {
         for (const s of (allSemesters[y.id] || [])) {
           if (`${LINKED_CLASS_ID}_${y.id}_${s.id}` === key) {
             yearName = y.name;
-            semName  = s.name;
+            semName = s.name;
             break;
           }
         }
@@ -61,13 +62,13 @@ const syncStudentNotifications = () => {
       }
 
       newNotifs.push({
-        id:        `notif_pctsv_${key}`,
+        id: `notif_pctsv_${key}`,
         refId,
-        title:     "Điểm rèn luyện đã được PCTSV phê duyệt chính thức",
-        message:   [semName, yearName && `Năm học ${yearName}`].filter(Boolean).join(" · "),
-        read:      false,
+        title: "Điểm rèn luyện đã được PCTSV phê duyệt chính thức",
+        message: [semName, yearName && `Năm học ${yearName}`].filter(Boolean).join(" · "),
+        read: false,
         createdAt: nowStr(),
-        type:      "pctsv",
+        type: "pctsv",
       });
     }
 
@@ -81,26 +82,29 @@ const syncStudentNotifications = () => {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const StudentLayout = () => {
-  const logout   = useLogout();
+  const logout = useLogout();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [notifications,    setNotifications]    = useState(() => syncStudentNotifications());
-  const [highlightedIds,   setHighlightedIds]   = useState(new Set());
+  const [notifications, setNotifications] = useState(() => syncStudentNotifications());
+  const [highlightedIds, setHighlightedIds] = useState(new Set());
   const [showBellDropdown, setShowBellDropdown] = useState(false);
 
-  const bellRef     = useRef(null);
+  const bellRef = useRef(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const studentInfo = { name: "Trương Văn Gia Bảo", role: "Sinh viên" };
-
+  const studentInfo = {
+    name: "Trương Văn Gia Bảo",
+    role: getRoleLabel(localStorage.getItem("role")),
+    initials: "GB",
+  };
   useEffect(() => {
     const handleStatusUpdate = () => setNotifications(readNotifications());
     window.addEventListener("studentStatusUpdated", handleStatusUpdate);
-    window.addEventListener("pctsvApproved",        () => setNotifications(syncStudentNotifications()));
+    window.addEventListener("pctsvApproved", () => setNotifications(syncStudentNotifications()));
     return () => {
       window.removeEventListener("studentStatusUpdated", handleStatusUpdate);
-      window.removeEventListener("pctsvApproved",        handleStatusUpdate);
+      window.removeEventListener("pctsvApproved", handleStatusUpdate);
     };
   }, []);
 
@@ -206,7 +210,7 @@ const StudentLayout = () => {
                     ) : (
                       <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
                         {notifications.map((notif) => {
-                          const isNew   = highlightedIds.has(notif.id);
+                          const isNew = highlightedIds.has(notif.id);
                           const isPctsv = notif.type === "pctsv";
                           return (
                             <button
@@ -247,7 +251,7 @@ const StudentLayout = () => {
                 </div>
                 <div className="relative group">
                   <button className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold hover:shadow-lg transition-shadow cursor-pointer text-sm md:text-base">
-                    GB
+                    {studentInfo.initials}
                   </button>
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                     <div className="py-2">
@@ -279,7 +283,7 @@ const StudentLayout = () => {
           {mobileMenuOpen && (
             <div className="lg:hidden mt-4 pb-4 border-t border-gray-200 pt-4 space-y-4">
               <div className="flex items-center gap-3 pb-4 border-b border-gray-200">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold">GB</div>
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-semibold">{studentInfo.initials}</div>
                 <div>
                   <div className="font-semibold text-gray-800">{studentInfo.name}</div>
                   <div className="text-sm text-gray-500">{studentInfo.role}</div>
@@ -290,8 +294,7 @@ const StudentLayout = () => {
                   to="/student/individual-score"
                   onClick={() => setMobileMenuOpen(false)}
                   className={({ isActive }) =>
-                    `block w-full text-left px-4 py-2 rounded-lg cursor-pointer ${
-                      isActive ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
+                    `block w-full text-left px-4 py-2 rounded-lg cursor-pointer ${isActive ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
                     }`
                   }
                 >
@@ -301,8 +304,7 @@ const StudentLayout = () => {
                   to="/student/adjustment-request"
                   onClick={() => setMobileMenuOpen(false)}
                   className={({ isActive }) =>
-                    `block w-full text-left px-4 py-2 rounded-lg cursor-pointer ${
-                      isActive ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
+                    `block w-full text-left px-4 py-2 rounded-lg cursor-pointer ${isActive ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
                     }`
                   }
                 >

@@ -2,18 +2,17 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import useLogout from "../hooks/useLogout";
 import logo from "../assets/images/logo-header.png";
+import { getRoleLabel, getInitials } from "../utils/role";
 
 const GVCN_REQUESTS_KEY = "gvcnAdjustmentRequests";
-const NOTIF_KEY         = "khoaNotifications";
+const NOTIF_KEY = "khoaNotifications";
 
 const NAV_ITEMS = [
-  { label: "Bảng điểm Khoa",                     path: "/faculty-staff/bang-diem-khoa" },
+  { label: "Bảng điểm Khoa", path: "/faculty-staff/bang-diem-khoa" },
   { label: "Đề nghị điều chỉnh điểm trong Khoa", path: "/faculty-staff/de-nghi-dieu-chinh" },
 ];
 
 const ADJUSTMENT_PATH = "/faculty-staff/de-nghi-dieu-chinh";
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 
 const readPendingRequests = () => {
   try {
@@ -32,23 +31,23 @@ const readNotifications = () => {
 };
 
 const saveNotifications = (notifs) => {
-  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch {}
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch { }
 };
 
 const syncNotifications = (pendingReqs) => {
-  const existing     = readNotifications();
+  const existing = readNotifications();
   const existingRefs = new Set(existing.map((n) => n.refId));
 
   // Part 1: đơn chua-duyet bình thường từ SV/GVCN
   const incomingNotifs = pendingReqs
     .filter((req) => req.source !== "rescore" && !existingRefs.has(req.id))
     .map((req) => ({
-      id:        `notif_khoa_${req.id}`,
-      refId:     req.id,
-      title:     `Đơn đề nghị điều chỉnh điểm #${req.id}`,
-      message:   ["GVCN chuyển đơn chờ Khoa duyệt", req.hocKy, req.namHoc, req.ngayTao]
+      id: `notif_khoa_${req.id}`,
+      refId: req.id,
+      title: `Đơn đề nghị điều chỉnh điểm #${req.id}`,
+      message: ["GVCN chuyển đơn chờ Khoa duyệt", req.hocKy, req.namHoc, req.ngayTao]
         .filter(Boolean).join(" · "),
-      read:      false,
+      read: false,
       createdAt: req.ngayTao || "",
     }));
 
@@ -56,11 +55,11 @@ const syncNotifications = (pendingReqs) => {
   const rescoreNotifs = pendingReqs
     .filter((req) => req.source === "rescore" && !existingRefs.has(`rescore_submitted_${req.id}`))
     .map((req) => ({
-      id:        `notif_khoa_rescore_${req.id}`,
-      refId:     `rescore_submitted_${req.id}`,
-      title:     `GVCN đã chấm lại điểm — chờ Khoa duyệt`,
-      message:   [`SV: ${req.svHoTen}`, req.hocKy, req.namHoc].filter(Boolean).join(" · "),
-      read:      false,
+      id: `notif_khoa_rescore_${req.id}`,
+      refId: `rescore_submitted_${req.id}`,
+      title: `GVCN đã chấm lại điểm — chờ Khoa duyệt`,
+      message: [`SV: ${req.svHoTen}`, req.hocKy, req.namHoc].filter(Boolean).join(" · "),
+      read: false,
       createdAt: req.rescoreSubmittedAt || req.ngayTao || "",
     }));
 
@@ -74,13 +73,13 @@ const syncNotifications = (pendingReqs) => {
     .filter((req) => req.trangThai === "hoan-tat" || req.trangThai === "rescore-hoan-tat")
     .filter((req) => !existingRefs.has(`khoa_status_${req.id}_${req.trangThai}`))
     .map((req) => ({
-      id:        `notif_khoa_${req.id}_${req.trangThai}`,
-      refId:     `khoa_status_${req.id}_${req.trangThai}`,
-      title:     req.trangThai === "rescore-hoan-tat"
+      id: `notif_khoa_${req.id}_${req.trangThai}`,
+      refId: `khoa_status_${req.id}_${req.trangThai}`,
+      title: req.trangThai === "rescore-hoan-tat"
         ? `PCTSV đã duyệt điểm chấm lại #${req.id}`
         : `PCTSV đã hoàn tất đơn #${req.id}`,
-      message:   [req.hocKy, req.namHoc, req.ngayTao].filter(Boolean).join(" · "),
-      read:      false,
+      message: [req.hocKy, req.namHoc, req.ngayTao].filter(Boolean).join(" · "),
+      read: false,
       createdAt: req.ngayTao || "",
     }));
 
@@ -91,25 +90,23 @@ const syncNotifications = (pendingReqs) => {
   return updated;
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 const FacultyStaffLayout = () => {
-  const logout   = useLogout();
+  const logout = useLogout();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [pendingCount,     setPendingCount]     = useState(() => readPendingRequests().length);
-  const [notifications,    setNotifications]    = useState(() => syncNotifications(readPendingRequests()));
-  const [highlightedIds,   setHighlightedIds]   = useState(new Set());
+  const [pendingCount, setPendingCount] = useState(() => readPendingRequests().length);
+  const [notifications, setNotifications] = useState(() => syncNotifications(readPendingRequests()));
+  const [highlightedIds, setHighlightedIds] = useState(new Set());
   const [showBellDropdown, setShowBellDropdown] = useState(false);
 
-  const bellRef     = useRef(null);
+  const bellRef = useRef(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const userInfo = {
-    name:     "Nguyễn Văn Hùng",
-    role:     "Cán bộ Khoa",
+    name: "Nguyễn Văn Hùng",
+    role: getRoleLabel(localStorage.getItem("role")),
     initials: "VH",
   };
 
@@ -125,15 +122,15 @@ const FacultyStaffLayout = () => {
       setNotifications(syncNotifications(readPendingRequests()));
     };
 
-    window.addEventListener("gvcnRequestsUpdated",  handleIncoming);
+    window.addEventListener("gvcnRequestsUpdated", handleIncoming);
     window.addEventListener("gvcnRescoreSubmitted", handleIncoming);   // ← mới: GVCN nộp chấm lại
-    window.addEventListener("khoaStatusUpdated",    handleStatusUpdate);
-    window.addEventListener("khoaRescoreUpdated",   handleStatusUpdate); // ← mới: sau khi Khoa approve lần 2
+    window.addEventListener("khoaStatusUpdated", handleStatusUpdate);
+    window.addEventListener("khoaRescoreUpdated", handleStatusUpdate); // ← mới: sau khi Khoa approve lần 2
     return () => {
-      window.removeEventListener("gvcnRequestsUpdated",  handleIncoming);
+      window.removeEventListener("gvcnRequestsUpdated", handleIncoming);
       window.removeEventListener("gvcnRescoreSubmitted", handleIncoming);
-      window.removeEventListener("khoaStatusUpdated",    handleStatusUpdate);
-      window.removeEventListener("khoaRescoreUpdated",   handleStatusUpdate);
+      window.removeEventListener("khoaStatusUpdated", handleStatusUpdate);
+      window.removeEventListener("khoaRescoreUpdated", handleStatusUpdate);
     };
   }, []);
 
@@ -185,11 +182,10 @@ const FacultyStaffLayout = () => {
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer pb-1 ${
-                      isActive(item.path)
-                        ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
-                        : "text-gray-600 hover:text-[#3d2f6b]"
-                    }`}
+                    className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer pb-1 ${isActive(item.path)
+                      ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
+                      : "text-gray-600 hover:text-[#3d2f6b]"
+                      }`}
                   >
                     {item.label}
                     {isAdjustment && pendingCount > 0 && (
@@ -306,9 +302,8 @@ const FacultyStaffLayout = () => {
                     <button
                       key={item.path}
                       onClick={() => { navigate(item.path); setMobileMenuOpen(false); }}
-                      className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2 ${
-                        isActive(item.path) ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
-                      }`}
+                      className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2 ${isActive(item.path) ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
+                        }`}
                     >
                       {item.label}
                       {isAdjustment && pendingCount > 0 && (

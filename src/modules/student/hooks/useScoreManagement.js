@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useScoreContext } from "../../../context/ScoreContext";
+import { getAutoScoreFromSystemB } from "../../../utils/gpaConvert";
 
 const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {
@@ -9,9 +10,7 @@ const fileToBase64 = (file) =>
     reader.readAsDataURL(file);
   });
 
-// Draft: chỉ student thấy, chưa gửi BCS
 const DRAFT_KEY = "studentDraftData";
-// Danh sách kỳ đã "Gửi duyệt"
 const SUBMITTED_PERIODS_KEY = "studentSubmittedPeriods";
 
 const readDraftPeriod = (yearId, semId) => {
@@ -40,12 +39,27 @@ const readSubmittedPeriods = () => {
   }
 };
 
+const calcAutoTotal = (scoreData, mssv) => {
+  let total = 0;
+  scoreData.forEach((section) => {
+    section.criteria.forEach((criterion) => {
+      criterion.items.forEach((item) => {
+        if (!item.note) return;
+        const auto = getAutoScoreFromSystemB(mssv);
+        if (auto !== null) total += auto;
+      });
+    });
+  });
+  return total;
+};
+
 export const useScoreManagement = (
   scoreData,
   yearId,
   semesterId,
   hasDataForCurrentPeriod = false,
-  timeWindow = null
+  timeWindow = null,
+  mssv = null
 ) => {
   const { setStudentPeriodData } = useScoreContext();
 
@@ -62,7 +76,6 @@ export const useScoreManagement = (
 
   const periodKey = yearId && semesterId ? `${yearId}_${semesterId}` : null;
 
-  // Load / reset data when year or semester changes
   useEffect(() => {
     if (!yearId || !semesterId) {
       setSavedScores({});
@@ -82,27 +95,25 @@ export const useScoreManagement = (
     setIsSubmitted(readSubmittedPeriods().includes(`${yearId}_${semesterId}`));
   }, [yearId, semesterId]);
 
-  // Auto-submit khi hết thời gian chấm mà sinh viên chưa gửi
+  // Auto-submit khi hết thời gian chấm
   useEffect(() => {
     if (!periodKey || !timeWindow) return;
     if (timeWindow.status !== "after") return;
     const submitted = readSubmittedPeriods();
     if (submitted.includes(periodKey)) return;
 
-    // Đọc thẳng từ localStorage để tránh race condition với state
     const draft = readDraftPeriod(yearId, semesterId);
     const hasScores = Object.values(draft.savedScores || {}).some(
       (v) => v !== "" && v !== null && v !== undefined
     );
     if (!hasScores) return;
 
-    const total = Object.values(draft.savedScores).reduce(
-      (sum, v) =>
-        sum + (v !== "" && v !== null && v !== undefined ? Number(v) : 0),
+    let total = Object.values(draft.savedScores).reduce(
+      (sum, v) => sum + (v !== "" && v !== null && v !== undefined ? Number(v) : 0),
       0
     );
+    total += calcAutoTotal(scoreData, mssv);
 
-    // Publish lên studentAllData để BCS đọc được
     setStudentPeriodData(yearId, semesterId, {
       savedScores: draft.savedScores,
       uploadedImages: draft.uploadedImages,
@@ -121,21 +132,20 @@ export const useScoreManagement = (
     } else {
       document.body.style.overflow = "unset";
     }
-    return () => {
-      document.body.style.overflow = "unset";
-    };
+    return () => { document.body.style.overflow = "unset"; };
   }, [showConfirmModal, viewingImage, modalItemKey, editingImage]);
 
   const getItemKey = (sectionIdx, criterionIdx, itemIdx) =>
     `${sectionIdx}-${criterionIdx}-${itemIdx}`;
 
+  // SV section score — note items không tính (auto đi vào GVCN)
   const calculateSectionScore = (sectionIdx) => {
     const section = scoreData[sectionIdx];
     if (!section) return 0;
     let total = 0;
     section.criteria.forEach((criterion, criterionIdx) => {
       criterion.items.forEach((item, itemIdx) => {
-        if (item.note) return;
+        if (item.note) return; // ← auto score thuộc GVCN, không phải SV
         const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
         const scoreSource = isEditing ? tempScores : savedScores;
         const score = scoreSource[itemKey];
@@ -200,11 +210,7 @@ export const useScoreManagement = (
   const handleConfirmSave = () => {
     const filteredScores = {};
     Object.keys(tempScores).forEach((key) => {
-      if (
-        tempScores[key] !== "" &&
-        tempScores[key] !== undefined &&
-        tempScores[key] !== null
-      ) {
+      if (tempScores[key] !== "" && tempScores[key] !== undefined && tempScores[key] !== null) {
         filteredScores[key] = tempScores[key];
       }
     });
@@ -216,13 +222,12 @@ export const useScoreManagement = (
       }
     });
 
-    const total = Object.values(filteredScores).reduce(
-      (sum, v) =>
-        sum + (v !== "" && v !== null && v !== undefined ? Number(v) : 0),
+    let total = Object.values(filteredScores).reduce(
+      (sum, v) => sum + (v !== "" && v !== null && v !== undefined ? Number(v) : 0),
       0
     );
+    total += calcAutoTotal(scoreData, mssv);
 
-    // Lưu vào draft (chỉ student thấy, chưa gửi BCS)
     saveDraftPeriod(yearId, semesterId, {
       savedScores: filteredScores,
       uploadedImages: filteredImages,
@@ -237,15 +242,14 @@ export const useScoreManagement = (
     setShowConfirmModal(false);
   };
 
-  // Gửi duyệt: publish draft lên studentAllData để BCS đọc được
   const handleSubmitForReview = () => {
     if (!periodKey) return;
 
-    const total = Object.values(savedScores).reduce(
-      (sum, v) =>
-        sum + (v !== "" && v !== null && v !== undefined ? Number(v) : 0),
+    let total = Object.values(savedScores).reduce(
+      (sum, v) => sum + (v !== "" && v !== null && v !== undefined ? Number(v) : 0),
       0
     );
+    total += calcAutoTotal(scoreData, mssv);
 
     setStudentPeriodData(yearId, semesterId, {
       savedScores,
@@ -290,19 +294,21 @@ export const useScoreManagement = (
     return savedScores[itemKey] !== undefined ? savedScores[itemKey] : "";
   };
 
+  // Auto score → acc.reviewer (GVCN column), không phải acc.self
   const calculateTotals = () => {
     return scoreData.reduce(
       (acc, section, sectionIdx) => {
         section.criteria.forEach((criterion, criterionIdx) => {
           (criterion.items || []).forEach((item, itemIdx) => {
-            const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
             acc.max += Number(item.maxScore || 0);
+            if (item.note) {
+              const auto = getAutoScoreFromSystemB(mssv);
+              if (auto !== null) acc.reviewer += auto; // ← GVCN total
+              return;
+            }
+            const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
             const savedScore = savedScores[itemKey];
-            if (
-              savedScore !== undefined &&
-              savedScore !== "" &&
-              savedScore !== null
-            ) {
+            if (savedScore !== undefined && savedScore !== "" && savedScore !== null) {
               acc.self += Number(savedScore);
             }
             acc.reviewer += Number(item.reviewerScore ?? 0);

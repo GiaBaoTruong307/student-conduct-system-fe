@@ -2,15 +2,16 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import useLogout from "../hooks/useLogout";
 import logo from "../assets/images/logo-header.png";
+import { getRoleLabel, getInitials } from "../utils/role";
 
-const GVCN_REQUESTS_KEY    = "gvcnAdjustmentRequests";
+const GVCN_REQUESTS_KEY = "gvcnAdjustmentRequests";
 const STUDENT_REQUESTS_KEY = "studentAdjustmentRequests";
-const NOTIF_KEY            = "pctsvNotifications";
+const NOTIF_KEY = "pctsvNotifications";
 
 const NAV_ITEMS = [
-  { label: "Bảng điểm sinh viên",                  path: "/student-affairs-staff/bang-diem-sv" },
+  { label: "Bảng điểm sinh viên", path: "/student-affairs-staff/bang-diem-sv" },
   { label: "Đề nghị điều chỉnh điểm trong trường", path: "/student-affairs-staff/de-nghi-dieu-chinh" },
-  { label: "Báo cáo",                               path: "/student-affairs-staff/bao-cao" },
+  { label: "Báo cáo", path: "/student-affairs-staff/bao-cao" },
 ];
 
 const ADJUSTMENT_PATH = "/student-affairs-staff/de-nghi-dieu-chinh";
@@ -19,11 +20,11 @@ const ADJUSTMENT_PATH = "/student-affairs-staff/de-nghi-dieu-chinh";
 
 const readPendingRequests = () => {
   try {
-    const gvcnReqs    = JSON.parse(localStorage.getItem(GVCN_REQUESTS_KEY)    || "[]");
+    const gvcnReqs = JSON.parse(localStorage.getItem(GVCN_REQUESTS_KEY) || "[]");
     const studentReqs = JSON.parse(localStorage.getItem(STUDENT_REQUESTS_KEY) || "[]");
-    const fromGvcn    = gvcnReqs.filter((r) => r.trangThai === "khoa-duyet");
+    const fromGvcn = gvcnReqs.filter((r) => r.trangThai === "khoa-duyet");
     const fromRescore = gvcnReqs.filter((r) => r.trangThai === "rescore-khoa-duyet");
-    const coveredIds  = new Set(fromGvcn.map((r) => r.studentRequestId).filter(Boolean));
+    const coveredIds = new Set(fromGvcn.map((r) => r.studentRequestId).filter(Boolean));
     const fromStudent = studentReqs.filter(
       (r) => r.trangThai === "khoa-duyet" && !coveredIds.has(r.id)
     );
@@ -37,11 +38,11 @@ const readNotifications = () => {
 };
 
 const saveNotifications = (notifs) => {
-  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch {}
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(notifs)); } catch { }
 };
 
 const syncNotifications = (pendingReqs) => {
-  const existing       = readNotifications();
+  const existing = readNotifications();
   const existingRefIds = new Set(existing.map((n) => n.refId));
   const newNotifs = pendingReqs
     .filter((req) => {
@@ -50,20 +51,20 @@ const syncNotifications = (pendingReqs) => {
     })
     .map((req) => {
       const isRescore = req.trangThai === "rescore-khoa-duyet";
-      const refId     = isRescore ? `rescore_${req.id}` : req.id;
+      const refId = isRescore ? `rescore_${req.id}` : req.id;
       return {
-        id:        `notif_pctsv_${isRescore ? "rescore_" : ""}${req.id}`,
-        type:      isRescore ? "rescore_request" : "adjustment_request",
+        id: `notif_pctsv_${isRescore ? "rescore_" : ""}${req.id}`,
+        type: isRescore ? "rescore_request" : "adjustment_request",
         refId,
-        title:     isRescore
+        title: isRescore
           ? `Kết quả chấm lại của GVCN #${req.id}`
           : `Đơn đề nghị điều chỉnh điểm #${req.id}`,
-        message:   isRescore
+        message: isRescore
           ? ["Khoa đã duyệt kết quả chấm lại, chờ PCTSV xác nhận", req.hocKy, req.namHoc, req.ngayTao]
-              .filter(Boolean).join(" · ")
+            .filter(Boolean).join(" · ")
           : ["Khoa đã duyệt, chờ PCTSV xử lý", req.hocKy, req.namHoc, req.ngayTao]
-              .filter(Boolean).join(" · "),
-        read:      false,
+            .filter(Boolean).join(" · "),
+        read: false,
         createdAt: req.ngayTao || "",
       };
     });
@@ -76,22 +77,22 @@ const syncNotifications = (pendingReqs) => {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 const StudentAffairsStaffLayout = () => {
-  const logout   = useLogout();
+  const logout = useLogout();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [pendingCount,     setPendingCount]     = useState(() => readPendingRequests().length);
-  const [notifications,    setNotifications]    = useState(() => syncNotifications(readPendingRequests()));
-  const [highlightedIds,   setHighlightedIds]   = useState(new Set());
+  const [pendingCount, setPendingCount] = useState(() => readPendingRequests().length);
+  const [notifications, setNotifications] = useState(() => syncNotifications(readPendingRequests()));
+  const [highlightedIds, setHighlightedIds] = useState(new Set());
   const [showBellDropdown, setShowBellDropdown] = useState(false);
 
-  const bellRef     = useRef(null);
+  const bellRef = useRef(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const userInfo = {
-    name:     "Nguyễn Thùy Dung",
-    role:     "Nhân viên PCTSV",
+    name: "Nguyễn Thùy Dung",
+    role: getRoleLabel(localStorage.getItem("role")),
     initials: "TD",
   };
 
@@ -104,10 +105,10 @@ const StudentAffairsStaffLayout = () => {
       setNotifications(syncNotifications(pending));
     };
     window.addEventListener("khoaRequestsUpdated", handleUpdate);
-    window.addEventListener("khoaRescoreUpdated",  handleUpdate);
+    window.addEventListener("khoaRescoreUpdated", handleUpdate);
     return () => {
       window.removeEventListener("khoaRequestsUpdated", handleUpdate);
-      window.removeEventListener("khoaRescoreUpdated",  handleUpdate);
+      window.removeEventListener("khoaRescoreUpdated", handleUpdate);
     };
   }, []);
 
@@ -160,11 +161,10 @@ const StudentAffairsStaffLayout = () => {
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer pb-1 ${
-                      isActive(item.path)
-                        ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
-                        : "text-gray-600 hover:text-[#3d2f6b]"
-                    }`}
+                    className={`flex items-center gap-1.5 font-medium transition-colors cursor-pointer pb-1 ${isActive(item.path)
+                      ? "text-[#3d2f6b] font-semibold border-b-2 border-[#3d2f6b]"
+                      : "text-gray-600 hover:text-[#3d2f6b]"
+                      }`}
                   >
                     {item.label}
                     {isAdjustment && pendingCount > 0 && (
@@ -208,8 +208,8 @@ const StudentAffairsStaffLayout = () => {
                     ) : (
                       <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
                         {notifications.map((notif) => {
-                          const isNew      = highlightedIds.has(notif.id);
-                          const isRescore  = notif.type === "rescore_request";
+                          const isNew = highlightedIds.has(notif.id);
+                          const isRescore = notif.type === "rescore_request";
                           return (
                             <button
                               key={notif.id}
@@ -285,9 +285,8 @@ const StudentAffairsStaffLayout = () => {
                     <button
                       key={item.path}
                       onClick={() => { navigate(item.path); setMobileMenuOpen(false); }}
-                      className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2 ${
-                        isActive(item.path) ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
-                      }`}
+                      className={`w-full text-left px-4 py-2 rounded-lg cursor-pointer transition-colors flex items-center gap-2 ${isActive(item.path) ? "text-[#3d2f6b] font-semibold bg-purple-50" : "text-gray-600 hover:bg-gray-50"
+                        }`}
                     >
                       {item.label}
                       {isAdjustment && pendingCount > 0 && (

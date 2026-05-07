@@ -17,8 +17,8 @@ const readLS = (key, def) => {
   catch { return def; }
 };
 
-const fakeSelfScores = [null,88,89,85,90,83,78,89,87,87,76,77,80,70,88,83,92,87,86,78,79,92,83];
-const fakeGvcnScores = [null,85,87,80,88,78,77,85,85,77,75,80,70,88,80,90,85,86,75,80,90,83,85];
+const fakeSelfScores = [null, 88, 89, 85, 90, 83, 78, 89, 87, 87, 76, 77, 80, 70, 88, 83, 92, 87, 86, 78, 79, 92, 83];
+const fakeGvcnScores = [null, 85, 87, 80, 88, 78, 77, 85, 85, 77, 75, 80, 70, 88, 80, 90, 85, 86, 75, 80, 90, 83, 85];
 
 const computeGvcnTotal = (savedScores, selfScores, adminCriteria) => {
   if (!adminCriteria || adminCriteria.length === 0) return null;
@@ -48,23 +48,23 @@ const computeGvcnTotal = (savedScores, selfScores, adminCriteria) => {
 
 const PctsvClassScoreBoard = () => {
   const { classId } = useParams();
-  const navigate    = useNavigate();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { pathname }   = useLocation();
+  const { pathname } = useLocation();
 
   const isLeader = pathname.startsWith("/student-affairs-leader");
-  const _base    = isLeader ? "/student-affairs-leader" : "/student-affairs-staff";
+  const _base = isLeader ? "/student-affairs-leader" : "/student-affairs-staff";
 
   const classInfo = PCTSV_CLASSES.find((c) => c.id === classId);
 
-  const allYears      = readLS(ADMIN_LS_KEYS.YEARS, []);
-  const allSemesters  = readLS(ADMIN_LS_KEYS.SEMESTERS, {});
+  const allYears = readLS(ADMIN_LS_KEYS.YEARS, []);
+  const allSemesters = readLS(ADMIN_LS_KEYS.SEMESTERS, {});
   const adminCriteria = readLS(ADMIN_LS_KEYS.CRITERIA, []);
 
-  const [selectedYearId,     setSelectedYearId]     = useState(searchParams.get("yearId") ?? "");
-  const [selectedSemesterId, setSelectedSemesterId] = useState(searchParams.get("semId")  ?? "");
+  const [selectedYearId, setSelectedYearId] = useState(searchParams.get("yearId") ?? "");
+  const [selectedSemesterId, setSelectedSemesterId] = useState(searchParams.get("semId") ?? "");
 
-  const semesters    = selectedYearId ? (allSemesters[selectedYearId] ?? []) : [];
+  const semesters = selectedYearId ? (allSemesters[selectedYearId] ?? []) : [];
   const selectedYear = allYears.find((y) => y.id === selectedYearId) ?? null;
 
   const handleYearChange = (yearId) => {
@@ -72,7 +72,7 @@ const PctsvClassScoreBoard = () => {
     setSelectedSemesterId("");
   };
 
-  const hasData   = !!selectedYearId && !!selectedSemesterId;
+  const hasData = !!selectedYearId && !!selectedSemesterId;
   const periodKey = hasData ? `${selectedYearId}_${selectedSemesterId}` : null;
 
   const { getStudentPeriodData } = useScoreContext();
@@ -92,7 +92,7 @@ const PctsvClassScoreBoard = () => {
 
     if (member.isLinkedToStudent) {
       const savedScores = data?.savedScores ?? {};
-      const selfScores  = getStudentPeriodData(selectedYearId, selectedSemesterId).savedScores ?? {};
+      const selfScores = getStudentPeriodData(selectedYearId, selectedSemesterId).savedScores ?? {};
       if (Object.keys(savedScores).length > 0 || Object.keys(selfScores).length > 0) {
         const computed = computeGvcnTotal(savedScores, selfScores, adminCriteria);
         if (computed !== null) return computed;

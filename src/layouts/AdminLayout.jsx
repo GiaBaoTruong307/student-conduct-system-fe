@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
 import useLogout from "../hooks/useLogout";
 import logo from "../assets/images/logo-header.png";
+import { getRoleLabel, getInitials } from "../utils/role";
 
 const NAV_ITEMS = [
   {
@@ -62,7 +63,12 @@ const AdminLayout = () => {
   const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const adminInfo = { name: "Admin123", role: "Admin", initials: "A" };
+  const adminInfo = {
+    name: "Admin123",
+    role: getRoleLabel(localStorage.getItem("role")),
+    initials: "A",
+  };
+
   const isActive = (path) => pathname === path || pathname.startsWith(path + "/");
 
   return (

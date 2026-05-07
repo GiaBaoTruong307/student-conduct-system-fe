@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getAutoScoreFromSystemB } from "../../../utils/gpaConvert"; // ← THÊM
 
 const fileToBase64 = (file) =>
   new Promise((resolve, reject) => {
@@ -24,7 +25,8 @@ export const useScoreManagement = (
   scoreData,
   yearId,
   semId,
-  hasDataForCurrentPeriod = false
+  hasDataForCurrentPeriod = false,
+  mssv = null  // ← THÊM
 ) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -36,7 +38,6 @@ export const useScoreManagement = (
   const [modalItemKey, setModalItemKey] = useState(null);
   const [editingImage, setEditingImage] = useState(null);
 
-  // Load / reset when period changes
   useEffect(() => {
     const data = loadPeriodData(yearId, semId);
     setSavedScores(data.savedScores);
@@ -52,21 +53,24 @@ export const useScoreManagement = (
     } else {
       document.body.style.overflow = "unset";
     }
-    return () => {
-      document.body.style.overflow = "unset";
-    };
+    return () => { document.body.style.overflow = "unset"; };
   }, [showConfirmModal, viewingImage, modalItemKey, editingImage]);
 
   const getItemKey = (sectionIdx, criterionIdx, itemIdx) =>
     `${sectionIdx}-${criterionIdx}-${itemIdx}`;
 
+  // ← SỬA: bổ sung auto-score cho note items
   const calculateSectionScore = (sectionIdx) => {
     const section = scoreData[sectionIdx];
     if (!section) return 0;
     let total = 0;
     section.criteria.forEach((criterion, criterionIdx) => {
       criterion.items.forEach((item, itemIdx) => {
-        if (item.note) return;
+        if (item.note) {
+          const auto = getAutoScoreFromSystemB(mssv);
+          if (auto !== null) total += auto;
+          return;
+        }
         const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
         const scoreSource = isEditing ? tempScores : savedScores;
         const score = scoreSource[itemKey];
@@ -131,11 +135,7 @@ export const useScoreManagement = (
   const handleConfirmSave = () => {
     const filteredScores = {};
     Object.keys(tempScores).forEach((key) => {
-      if (
-        tempScores[key] !== "" &&
-        tempScores[key] !== undefined &&
-        tempScores[key] !== null
-      ) {
+      if (tempScores[key] !== "" && tempScores[key] !== undefined && tempScores[key] !== null) {
         filteredScores[key] = tempScores[key];
       }
     });
@@ -156,17 +156,13 @@ export const useScoreManagement = (
 
     if (yearId && semId) {
       try {
-        const all = JSON.parse(
-          localStorage.getItem(CL_ALL_DATA_KEY) || "{}"
-        );
+        const all = JSON.parse(localStorage.getItem(CL_ALL_DATA_KEY) || "{}");
         all[`${yearId}_${semId}`] = {
           savedScores: filteredScores,
           uploadedImages: filteredImages,
         };
         localStorage.setItem(CL_ALL_DATA_KEY, JSON.stringify(all));
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
   };
 
@@ -199,19 +195,21 @@ export const useScoreManagement = (
     return savedScores[itemKey] !== undefined ? savedScores[itemKey] : "";
   };
 
+  // ← SỬA: bổ sung auto-score vào tổng
   const calculateTotals = () => {
     return scoreData.reduce(
       (acc, section, sectionIdx) => {
         section.criteria.forEach((criterion, criterionIdx) => {
           (criterion.items || []).forEach((item, itemIdx) => {
-            const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
             acc.max += Number(item.maxScore || 0);
+            if (item.note) {
+              const auto = getAutoScoreFromSystemB(mssv);
+              if (auto !== null) acc.self += auto;
+              return;
+            }
+            const itemKey = getItemKey(sectionIdx, criterionIdx, itemIdx);
             const savedScore = savedScores[itemKey];
-            if (
-              savedScore !== undefined &&
-              savedScore !== "" &&
-              savedScore !== null
-            ) {
+            if (savedScore !== undefined && savedScore !== "" && savedScore !== null) {
               acc.self += Number(savedScore);
             }
             acc.reviewer += Number(item.reviewerScore ?? 0);

@@ -1,4 +1,33 @@
 import React from "react";
+import { getGpaFromSystemB, convertGpaToScore } from "../../../utils/gpaConvert";
+
+const AutoScoreCell = ({ mssv }) => {
+  const auto = convertGpaToScore(getGpaFromSystemB(mssv));
+  if (auto === null) return <span className="text-gray-400 italic text-sm">-</span>;
+  return (
+    <div className="flex flex-col items-center leading-tight">
+      <span className="font-bold text-blue-700">{auto}</span>
+      <span className="text-[10px] text-blue-400">HT-B</span>
+    </div>
+  );
+};
+
+const AutoNoteCell = ({ mssv, note }) => {
+  const gpa = getGpaFromSystemB(mssv);
+  const auto = convertGpaToScore(gpa);
+  return (
+    <div className="text-xs space-y-1">
+      <div className="text-gray-400 italic">{note}</div>
+      {gpa !== null ? (
+        <div className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap">
+          🔗 HT-B · ĐTB: {gpa} → {auto}đ
+        </div>
+      ) : (
+        <div className="text-amber-500 text-[11px] italic">⏳ Chờ Hệ thống B</div>
+      )}
+    </div>
+  );
+};
 
 const ReviewerScoreTableDesktop = ({
   scoreData,
@@ -13,6 +42,7 @@ const ReviewerScoreTableDesktop = ({
   openNoteModal,
   selfTotal,
   reviewerTotals,
+  mssv = null,
 }) => {
   const getSelfSectionScore = (sectionIdx, section) => {
     if (!selfScores) return 0;
@@ -86,9 +116,13 @@ const ReviewerScoreTableDesktop = ({
                           <td className="px-4 py-2 border-r border-gray-200 text-sm whitespace-pre-line text-gray-700">{item.description}</td>
                           <td className="px-4 py-2 text-center border-r border-gray-200 text-sm">{item.maxScore}</td>
                           <td className="px-4 py-2 text-center border-r border-gray-200 text-sm">
-                            {item.note ? <span className="text-gray-400 italic">-</span>
-                              : selfScore !== undefined && selfScore !== "" ? <span className="font-medium text-[#3d2f6b]">{selfScore}</span>
-                                : <span className="text-gray-400">-</span>}
+                            {item.note ? (
+                              <AutoScoreCell mssv={mssv} />
+                            ) : selfScore !== undefined && selfScore !== "" ? (
+                              <span className="font-medium text-[#3d2f6b]">{selfScore}</span>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
                           </td>
                           <td className="px-4 py-2 text-center border-r border-gray-200">
                             {item.note ? <span className="text-gray-400 italic text-sm">-</span>
@@ -97,7 +131,7 @@ const ReviewerScoreTableDesktop = ({
                           </td>
                           <td className="px-4 py-2 text-center border-r border-gray-200">
                             {item.note ? (
-                              <span className="text-xs text-gray-400 italic">{item.note}</span>
+                              <AutoNoteCell mssv={mssv} note={item.note} />
                             ) : images.length > 0 ? (
                               <div className="flex flex-wrap gap-2 justify-center">
                                 {images.map((img, imgIdx) => (
@@ -149,9 +183,13 @@ const ReviewerScoreTableDesktop = ({
                         <td className="px-4 py-2 border-r border-gray-200 text-sm whitespace-pre-line text-gray-700">{item.description}</td>
                         <td className="px-4 py-2 text-center border-r border-gray-200 text-sm">{item.maxScore}</td>
                         <td className="px-4 py-2 text-center border-r border-gray-200 text-sm">
-                          {item.note ? <span className="text-gray-400 italic">-</span>
-                            : selfScore !== undefined && selfScore !== "" ? <span className="font-medium text-[#3d2f6b]">{selfScore}</span>
-                              : <span className="text-gray-400">-</span>}
+                          {item.note ? (
+                            <AutoScoreCell mssv={mssv} />
+                          ) : selfScore !== undefined && selfScore !== "" ? (
+                            <span className="font-medium text-[#3d2f6b]">{selfScore}</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-center border-r border-gray-200">
                           {item.note ? <span className="text-gray-400 italic text-sm">-</span>
@@ -160,7 +198,7 @@ const ReviewerScoreTableDesktop = ({
                         </td>
                         <td className="px-4 py-2 text-center border-r border-gray-200">
                           {item.note ? (
-                            <span className="text-xs text-gray-400 italic">{item.note}</span>
+                            <AutoNoteCell mssv={mssv} note={item.note} />
                           ) : images.length > 0 ? (
                             <div className="flex flex-wrap gap-2 justify-center">
                               {images.map((img, imgIdx) => (

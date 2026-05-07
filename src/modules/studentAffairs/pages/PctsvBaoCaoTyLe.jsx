@@ -1,18 +1,27 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { PCTSV_FACULTIES, PCTSV_CLASSES } from "../constants/studentAffairs.constants";
+import { classMembers } from "../../classLeader/constants/classMembers";
+import { useScoreContext } from "../../../context/ScoreContext";
+import ClassScorePrintModal from "../../../components/ClassScorePrintModal";
 
 const ADMIN_LS_KEYS = {
     YEARS: "admin_academic_years",
     SEMESTERS: "admin_academic_semesters",
 };
 
+const GVCN_ALL_DATA_KEY = "gvcnAllData";
+const LINKED_CLASS_ID   = "48K14.1";
+
+const fakeSelfScores = [null,88,89,85,90,83,78,89,87,87,76,77,80,70,88,83,92,87,86,78,79,92,83];
+const fakeGvcnScores = [null,85,87,80,88,78,77,85,85,77,75,80,70,88,80,90,85,86,75,80,90,83,85];
+
 const CLASSIFICATION_ROWS = [
-    { label: "Xuất sắc", rowBg: "bg-green-100", textCls: "text-green-800 font-semibold" },
-    { label: "Tốt", rowBg: "bg-blue-100", textCls: "text-blue-700 font-semibold" },
-    { label: "Khá", rowBg: "bg-yellow-100", textCls: "text-yellow-700 font-semibold" },
-    { label: "Yếu", rowBg: "bg-pink-100", textCls: "text-pink-700 font-semibold" },
-    { label: "Trung bình", rowBg: "bg-red-500", textCls: "text-white font-bold" },
+    { label: "Xuất sắc",   rowBg: "bg-green-100", textCls: "text-green-800 font-semibold" },
+    { label: "Tốt",        rowBg: "bg-blue-100",  textCls: "text-blue-700 font-semibold" },
+    { label: "Khá",        rowBg: "bg-yellow-100", textCls: "text-yellow-700 font-semibold" },
+    { label: "Yếu",        rowBg: "bg-pink-100",  textCls: "text-pink-700 font-semibold" },
+    { label: "Trung bình", rowBg: "bg-red-500",   textCls: "text-white font-bold" },
 ];
 
 const readLS = (key, def) => {
@@ -23,14 +32,13 @@ const readLS = (key, def) => {
 const mockStatsForClass = (classId, yearId = "", semId = "") => {
     if (classId === "48K21.2") return { xs: 3, tot: 20, kha: 30, yeu: 7, tb: 4 };
     const seed = (classId + yearId + semId)
-        .split("")
-        .reduce((a, c, i) => a + c.charCodeAt(0) * (i + 1), 0);
+        .split("").reduce((a, c, i) => a + c.charCodeAt(0) * (i + 1), 0);
     const total = 22 + (seed % 26);
-    const xs = Math.max(1, Math.round(total * (0.04 + (seed % 5) * 0.012)));
+    const xs  = Math.max(1, Math.round(total * (0.04 + (seed % 5) * 0.012)));
     const tot = Math.round(total * (0.26 + (seed % 7) * 0.012));
     const kha = Math.round(total * (0.38 + (seed % 6) * 0.012));
     const yeu = Math.round(total * (0.09 + (seed % 4) * 0.010));
-    const tb = Math.max(0, total - xs - tot - kha - yeu);
+    const tb  = Math.max(0, total - xs - tot - kha - yeu);
     return { xs, tot, kha, yeu, tb };
 };
 
@@ -43,18 +51,18 @@ const aggregateStats = (classIds, yearId, semId) =>
         { xs: 0, tot: 0, kha: 0, yeu: 0, tb: 0 }
     );
 
-// ── Xuất bảng điểm – mock data ───────────────────────────────────────────────
+// ── Xuất bảng điểm – mock student data ──────────────────────────────────────
 const MOCK_STUDENTS = [
     { mssv: "221121521254", hoTen: "Trần Mai Thu Trang", ngaySinh: "29/04/2004", lopId: "48K21.2", khoaId: "tkth" },
-    { mssv: "221121521255", hoTen: "Nguyễn Văn An", ngaySinh: "15/03/2004", lopId: "48K21.2", khoaId: "tkth" },
-    { mssv: "221121521256", hoTen: "Lê Thị Bình", ngaySinh: "20/07/2004", lopId: "48K21.1", khoaId: "tkth" },
-    { mssv: "221121521257", hoTen: "Phạm Minh Châu", ngaySinh: "11/11/2003", lopId: "48K21.1", khoaId: "tkth" },
-    { mssv: "221122143001", hoTen: "Hoàng Thị Dung", ngaySinh: "05/02/2004", lopId: "21K21.1", khoaId: "qtkd" },
-    { mssv: "221122143002", hoTen: "Đặng Quốc Hưng", ngaySinh: "28/09/2003", lopId: "21K21.2", khoaId: "qtkd" },
-    { mssv: "221123214001", hoTen: "Võ Thị Kim Linh", ngaySinh: "03/06/2004", lopId: "22K14.1", khoaId: "cntt" },
-    { mssv: "221123214002", hoTen: "Trương Văn Minh", ngaySinh: "17/08/2003", lopId: "22K14.2", khoaId: "cntt" },
-    { mssv: "221124512001", hoTen: "Bùi Thị Ngọc", ngaySinh: "22/01/2004", lopId: "32K14.1", khoaId: "tcnh" },
-    { mssv: "221124512002", hoTen: "Phan Hoàng Phúc", ngaySinh: "09/12/2003", lopId: "32K14.2", khoaId: "tcnh" },
+    { mssv: "221121521255", hoTen: "Nguyễn Văn An",     ngaySinh: "15/03/2004", lopId: "48K21.2", khoaId: "tkth" },
+    { mssv: "221121521256", hoTen: "Lê Thị Bình",       ngaySinh: "20/07/2004", lopId: "48K21.1", khoaId: "tkth" },
+    { mssv: "221121521257", hoTen: "Phạm Minh Châu",    ngaySinh: "11/11/2003", lopId: "48K21.1", khoaId: "tkth" },
+    { mssv: "221122143001", hoTen: "Hoàng Thị Dung",    ngaySinh: "05/02/2004", lopId: "21K21.1", khoaId: "qtkd" },
+    { mssv: "221122143002", hoTen: "Đặng Quốc Hưng",    ngaySinh: "28/09/2003", lopId: "21K21.2", khoaId: "qtkd" },
+    { mssv: "221123214001", hoTen: "Võ Thị Kim Linh",   ngaySinh: "03/06/2004", lopId: "22K14.1", khoaId: "cntt" },
+    { mssv: "221123214002", hoTen: "Trương Văn Minh",   ngaySinh: "17/08/2003", lopId: "22K14.2", khoaId: "cntt" },
+    { mssv: "221124512001", hoTen: "Bùi Thị Ngọc",      ngaySinh: "22/01/2004", lopId: "32K14.1", khoaId: "tcnh" },
+    { mssv: "221124512002", hoTen: "Phan Hoàng Phúc",   ngaySinh: "09/12/2003", lopId: "32K14.2", khoaId: "tcnh" },
 ];
 
 const ALL_SEM_ROWS = [
@@ -84,6 +92,32 @@ const mockStudentScores = (mssv) => {
     });
 };
 
+// ── Fake class member generator (for non-linked classes) ──────────────────────
+const HO_LIST  = ["Nguyễn Văn","Trần Thị","Lê Văn","Phạm Thị","Hoàng Văn","Vũ Thị","Đặng Văn","Bùi Thị","Đỗ Văn","Hồ Thị","Ngô Văn","Dương Thị","Phan Văn","Võ Thị","Cao Văn"];
+const TEN_LIST = ["An","Bình","Chi","Dung","Em","Phúc","Giang","Hoa","Hùng","Khoa","Lan","Minh","Nam","Oanh","Phương","Quân","Sơn","Thảo","Uyên","Vân","Xuân","Yến"];
+
+const generateFakeClassMembers = (classId) => {
+    const seed  = classId.split("").reduce((a, c, i) => a + c.charCodeAt(0) * (i + 1), 0);
+    const count = 20 + (seed % 6);
+    const base  = classId.replace(/[^0-9]/g, "").slice(0, 5).padEnd(5, "0");
+    return Array.from({ length: count }, (_, i) => {
+        const s = (seed * (i + 7) + i * 13) % 1000;
+        const selfScore  = 60 + (s % 33);
+        const finalScore = Math.max(35, selfScore + ((s % 9) - 4));
+        const dd = String(1  + (s % 28)).padStart(2, "0");
+        const mm = String(1  + ((s * 3) % 12)).padStart(2, "0");
+        const yy = 2003 + ((s * 5) % 2);
+        return {
+            mssv:      `22${base}${String(i + 1).padStart(3, "0")}`,
+            ho:        HO_LIST[(seed + i * 3)  % HO_LIST.length],
+            ten:       TEN_LIST[(seed + i * 7) % TEN_LIST.length],
+            ngaySinh:  `${dd}/${mm}/${yy}`,
+            selfScore,
+            finalScore,
+        };
+    });
+};
+
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 const IconTyLe = ({ className }) => (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,14 +125,12 @@ const IconTyLe = ({ className }) => (
             d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
     </svg>
 );
-
 const IconSoSanh = ({ className }) => (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
             d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18" />
     </svg>
 );
-
 const IconXuat = ({ className }) => (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -109,9 +141,9 @@ const IconXuat = ({ className }) => (
 );
 
 const TABS = [
-    { id: "ty-le", label: "Báo cáo tỷ lệ", Icon: IconTyLe },
-    { id: "so-sanh", label: "Báo cáo so sánh", Icon: IconSoSanh },
-    { id: "xuat", label: "Xuất bảng điểm", Icon: IconXuat },
+    { id: "ty-le",   label: "Báo cáo tỷ lệ",    Icon: IconTyLe },
+    { id: "so-sanh", label: "Báo cáo so sánh",   Icon: IconSoSanh },
+    { id: "xuat",    label: "Xuất bảng điểm",    Icon: IconXuat },
 ];
 
 // ── Bar chart colors ──────────────────────────────────────────────────────────
@@ -122,34 +154,25 @@ const C2 = "#F97316";
 const SoSanhBarChart = ({ chartData, label1, label2 }) => {
     const [tooltip, setTooltip] = useState(null);
 
-    const SVG_W = 700;
-    const SVG_H = 310;
+    const SVG_W = 700, SVG_H = 310;
     const ML = 56, MR = 24, MT = 14, MB = 56;
-    const cW = SVG_W - ML - MR;
-    const cH = SVG_H - MT - MB;
+    const cW = SVG_W - ML - MR, cH = SVG_H - MT - MB;
 
-    const maxVal = Math.max(1, ...chartData.flatMap((d) => [d.val1, d.val2]));
+    const maxVal  = Math.max(1, ...chartData.flatMap((d) => [d.val1, d.val2]));
     const niceMax =
-        maxVal <= 5 ? 5 :
-            maxVal <= 10 ? 10 :
-                maxVal <= 15 ? 15 :
-                    maxVal <= 20 ? 20 :
-                        maxVal <= 25 ? 25 :
-                            maxVal <= 30 ? 30 :
-                                maxVal <= 35 ? 35 :
-                                    Math.ceil(maxVal / 10) * 10;
+        maxVal <= 5  ? 5  : maxVal <= 10 ? 10 : maxVal <= 15 ? 15 :
+        maxVal <= 20 ? 20 : maxVal <= 25 ? 25 : maxVal <= 30 ? 30 :
+        maxVal <= 35 ? 35 : Math.ceil(maxVal / 10) * 10;
 
     const tickStep = niceMax / 7;
-    const yTicks = Array.from({ length: 8 }, (_, i) => Math.round(tickStep * i));
-
-    const groupW = cW / chartData.length;
-    const barW = Math.max(20, Math.min(38, (groupW - 18) / 2));
-    const gap = 6;
-    const blockW = barW * 2 + gap;
-    const gPad = (groupW - blockW) / 2;
-
-    const yPos = (val) => MT + cH * (1 - val / niceMax);
-    const barHt = (val) => Math.max(0, cH * (val / niceMax));
+    const yTicks   = Array.from({ length: 8 }, (_, i) => Math.round(tickStep * i));
+    const groupW   = cW / chartData.length;
+    const barW     = Math.max(20, Math.min(38, (groupW - 18) / 2));
+    const gap      = 6;
+    const blockW   = barW * 2 + gap;
+    const gPad     = (groupW - blockW) / 2;
+    const yPos     = (val) => MT + cH * (1 - val / niceMax);
+    const barHt    = (val) => Math.max(0, cH * (val / niceMax));
 
     return (
         <div className="select-none">
@@ -157,7 +180,6 @@ const SoSanhBarChart = ({ chartData, label1, label2 }) => {
                 <p className="font-bold text-[15px] text-gray-800">Biểu đồ so sánh số lượng</p>
                 <p className="text-xs text-gray-500 italic mt-0.5">Điểm rèn luyện 2 lớp theo xếp loại</p>
             </div>
-
             <div className="flex justify-end items-center gap-5 pr-4 mb-2">
                 <div className="flex items-center gap-1.5">
                     <span className="inline-block w-3.5 h-3.5 rounded-sm" style={{ background: C1 }} />
@@ -168,107 +190,57 @@ const SoSanhBarChart = ({ chartData, label1, label2 }) => {
                     <span className="text-xs font-medium text-gray-700">{label2}</span>
                 </div>
             </div>
-
             <div className="flex items-center gap-1">
-                <div
-                    className="flex-shrink-0 text-[11px] text-gray-500 whitespace-nowrap"
-                    style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: SVG_H }}
-                >
+                <div className="flex-shrink-0 text-[11px] text-gray-500 whitespace-nowrap"
+                    style={{ writingMode: "vertical-rl", transform: "rotate(180deg)", height: SVG_H }}>
                     Số lượng sinh viên
                 </div>
-
-                <svg
-                    viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-                    className="w-full overflow-visible"
-                    style={{ height: 280 }}
-                    onMouseLeave={() => setTooltip(null)}
-                >
+                <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full overflow-visible" style={{ height: 280 }}
+                    onMouseLeave={() => setTooltip(null)}>
                     {yTicks.map((tick) => {
                         const yy = yPos(tick);
                         return (
                             <g key={tick}>
-                                <line
-                                    x1={ML} y1={yy} x2={ML + cW} y2={yy}
+                                <line x1={ML} y1={yy} x2={ML + cW} y2={yy}
                                     stroke={tick === 0 ? "#9ca3af" : "#e5e7eb"}
                                     strokeWidth={tick === 0 ? 1.5 : 1}
-                                    strokeDasharray={tick === 0 ? undefined : "3,3"}
-                                />
-                                <text x={ML - 6} y={yy + 4} textAnchor="end" fontSize={11} fill="#6b7280">
-                                    {tick}
-                                </text>
+                                    strokeDasharray={tick === 0 ? undefined : "3,3"} />
+                                <text x={ML - 6} y={yy + 4} textAnchor="end" fontSize={11} fill="#6b7280">{tick}</text>
                             </g>
                         );
                     })}
-
                     <line x1={ML} y1={MT} x2={ML} y2={MT + cH} stroke="#9ca3af" strokeWidth={1.5} />
-
                     {chartData.map((d, gi) => {
                         const gx = ML + gi * groupW;
-                        const x1 = gx + gPad;
-                        const x2 = x1 + barW + gap;
-                        const y1 = yPos(d.val1);
-                        const y2 = yPos(d.val2);
-                        const h1 = barHt(d.val1);
-                        const h2 = barHt(d.val2);
+                        const x1 = gx + gPad, x2 = x1 + barW + gap;
+                        const y1 = yPos(d.val1), y2 = yPos(d.val2);
+                        const h1 = barHt(d.val1), h2 = barHt(d.val2);
                         return (
                             <g key={d.label}>
-                                <rect
-                                    x={x1} y={y1} width={barW} height={h1}
-                                    fill={C1} rx={2} ry={2}
-                                    style={{ cursor: "pointer" }}
-                                    onMouseEnter={() =>
-                                        setTooltip({ x: x1 + barW / 2, y: y1, val: d.val1, pct: d.pct1, cls: label1 })
-                                    }
-                                />
-                                <rect
-                                    x={x2} y={y2} width={barW} height={h2}
-                                    fill={C2} rx={2} ry={2}
-                                    style={{ cursor: "pointer" }}
-                                    onMouseEnter={() =>
-                                        setTooltip({ x: x2 + barW / 2, y: y2, val: d.val2, pct: d.pct2, cls: label2 })
-                                    }
-                                />
-                                <text
-                                    x={gx + groupW / 2}
-                                    y={MT + cH + 20}
-                                    textAnchor="middle"
-                                    fontSize={12}
-                                    fill="#374151"
-                                >
-                                    {d.label}
-                                </text>
+                                <rect x={x1} y={y1} width={barW} height={h1} fill={C1} rx={2} ry={2} style={{ cursor: "pointer" }}
+                                    onMouseEnter={() => setTooltip({ x: x1 + barW / 2, y: y1, val: d.val1, pct: d.pct1, cls: label1 })} />
+                                <rect x={x2} y={y2} width={barW} height={h2} fill={C2} rx={2} ry={2} style={{ cursor: "pointer" }}
+                                    onMouseEnter={() => setTooltip({ x: x2 + barW / 2, y: y2, val: d.val2, pct: d.pct2, cls: label2 })} />
+                                <text x={gx + groupW / 2} y={MT + cH + 20} textAnchor="middle" fontSize={12} fill="#374151">{d.label}</text>
                             </g>
                         );
                     })}
-
                     {tooltip && (() => {
                         const TW = 136, TH = 50;
-                        let tx = tooltip.x - TW / 2;
-                        let ty = tooltip.y - TH - 10;
+                        let tx = tooltip.x - TW / 2, ty = tooltip.y - TH - 10;
                         if (tx < ML) tx = ML;
                         if (tx + TW > ML + cW) tx = ML + cW - TW;
                         if (ty < 0) ty = tooltip.y + 12;
                         return (
                             <g>
                                 <rect x={tx} y={ty} width={TW} height={TH} fill="rgba(17,24,39,0.82)" rx={6} />
-                                <text
-                                    x={tx + TW / 2} y={ty + 17}
-                                    textAnchor="middle" fontSize={11} fill="white" fontWeight="bold"
-                                >
-                                    {tooltip.cls}
-                                </text>
-                                <text
-                                    x={tx + TW / 2} y={ty + 36}
-                                    textAnchor="middle" fontSize={12} fill="white"
-                                >
-                                    {tooltip.val} SV · {tooltip.pct}
-                                </text>
+                                <text x={tx + TW / 2} y={ty + 17} textAnchor="middle" fontSize={11} fill="white" fontWeight="bold">{tooltip.cls}</text>
+                                <text x={tx + TW / 2} y={ty + 36} textAnchor="middle" fontSize={12} fill="white">{tooltip.val} SV · {tooltip.pct}</text>
                             </g>
                         );
                     })()}
                 </svg>
             </div>
-
             <div className="text-center text-[11px] text-gray-500 mt-1">Xếp loại điểm</div>
         </div>
     );
@@ -279,56 +251,65 @@ const SEL = "px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:
 
 // ── Main Component ────────────────────────────────────────────────────────────
 const PctsvBaoCaoTyLe = () => {
-    const allYears = readLS(ADMIN_LS_KEYS.YEARS, []);
+    const allYears     = readLS(ADMIN_LS_KEYS.YEARS, []);
     const allSemesters = readLS(ADMIN_LS_KEYS.SEMESTERS, {});
+
+    const { getStudentPeriodData } = useScoreContext();
 
     const [activeTab, setActiveTab] = useState("ty-le");
 
     // ── Tỷ lệ filter ─────────────────────────────────────────────────────────
-    const [formNamHoc, setFormNamHoc] = useState("");
-    const [formHocKy, setFormHocKy] = useState("");
-    const [formKhoaId, setFormKhoaId] = useState("");
-    const [formKhoaPrefix, setFormKhoaPrefix] = useState("");
-    const [formLopId, setFormLopId] = useState("");
-    const [formGvcn, setFormGvcn] = useState("");
-    const [applied, setApplied] = useState(null);
+    const [formNamHoc,    setFormNamHoc]    = useState("");
+    const [formHocKy,     setFormHocKy]     = useState("");
+    const [formKhoaId,    setFormKhoaId]    = useState("");
+    const [formKhoaPrefix,setFormKhoaPrefix]= useState("");
+    const [formLopId,     setFormLopId]     = useState("");
+    const [formGvcn,      setFormGvcn]      = useState("");
+    const [applied,       setApplied]       = useState(null);
 
     // ── So sánh filter – form 1 ───────────────────────────────────────────────
-    const [ss1NamHoc, setSs1NamHoc] = useState("");
-    const [ss1HocKy, setSs1HocKy] = useState("");
-    const [ss1KhoaId, setSs1KhoaId] = useState("");
+    const [ss1NamHoc,     setSs1NamHoc]     = useState("");
+    const [ss1HocKy,      setSs1HocKy]      = useState("");
+    const [ss1KhoaId,     setSs1KhoaId]     = useState("");
     const [ss1KhoaPrefix, setSs1KhoaPrefix] = useState("");
-    const [ss1LopId, setSs1LopId] = useState("");
-    const [ss1Gvcn, setSs1Gvcn] = useState("");
+    const [ss1LopId,      setSs1LopId]      = useState("");
+    const [ss1Gvcn,       setSs1Gvcn]       = useState("");
 
     // ── So sánh filter – form 2 ───────────────────────────────────────────────
-    const [ss2NamHoc, setSs2NamHoc] = useState("");
-    const [ss2HocKy, setSs2HocKy] = useState("");
-    const [ss2KhoaId, setSs2KhoaId] = useState("");
+    const [ss2NamHoc,     setSs2NamHoc]     = useState("");
+    const [ss2HocKy,      setSs2HocKy]      = useState("");
+    const [ss2KhoaId,     setSs2KhoaId]     = useState("");
     const [ss2KhoaPrefix, setSs2KhoaPrefix] = useState("");
-    const [ss2LopId, setSs2LopId] = useState("");
-    const [ss2Gvcn, setSs2Gvcn] = useState("");
+    const [ss2LopId,      setSs2LopId]      = useState("");
+    const [ss2Gvcn,       setSs2Gvcn]       = useState("");
+    const [ssApplied,     setSsApplied]     = useState(null);
 
-    const [ssApplied, setSsApplied] = useState(null);
+    // ── Xuất bảng điểm – theo sinh viên ──────────────────────────────────────
+    const [xuatMode,         setXuatMode]         = useState("sv"); // "sv" | "lop"
+    const [xuatQuery,        setXuatQuery]         = useState("");
+    const [xuatDropOpen,     setXuatDropOpen]      = useState(false);
+    const [xuatStudent,      setXuatStudent]       = useState(null);
+    const [xuatNamHoc,       setXuatNamHoc]        = useState("");
+    const [xuatHocKy,        setXuatHocKy]         = useState("");
+    const [xuatTatCa,        setXuatTatCa]         = useState(false);
+    const [xuatResult,       setXuatResult]        = useState(null);
+    const [showPrintConfirm, setShowPrintConfirm]  = useState(false);
+    const [showPrintSuccess, setShowPrintSuccess]  = useState(false);
 
-    // ── Xuất bảng điểm ───────────────────────────────────────────────────────
-    const [xuatQuery, setXuatQuery] = useState("");
-    const [xuatDropOpen, setXuatDropOpen] = useState(false);
-    const [xuatStudent, setXuatStudent] = useState(null);
-    const [xuatNamHoc, setXuatNamHoc] = useState("");
-    const [xuatHocKy, setXuatHocKy] = useState("");
-    const [xuatTatCa, setXuatTatCa] = useState(false);
-    const [xuatResult, setXuatResult] = useState(null);
-    const [showPrintConfirm, setShowPrintConfirm] = useState(false);
-    const [showPrintSuccess, setShowPrintSuccess] = useState(false);
+    // ── Xuất bảng điểm – theo lớp ────────────────────────────────────────────
+    const [xuatLopNamHoc,      setXuatLopNamHoc]      = useState("");
+    const [xuatLopHocKy,       setXuatLopHocKy]       = useState("");
+    const [xuatLopKhoaId,      setXuatLopKhoaId]      = useState("");
+    const [xuatLopId,          setXuatLopId]           = useState("");
+    const [xuatLopResult,      setXuatLopResult]       = useState(null);
+    const [showClassPrintModal,setShowClassPrintModal] = useState(false);
 
     const xuatDropRef = useRef(null);
 
     useEffect(() => {
         const handle = (e) => {
-            if (xuatDropRef.current && !xuatDropRef.current.contains(e.target)) {
+            if (xuatDropRef.current && !xuatDropRef.current.contains(e.target))
                 setXuatDropOpen(false);
-            }
         };
         document.addEventListener("mousedown", handle);
         return () => document.removeEventListener("mousedown", handle);
@@ -345,8 +326,8 @@ const PctsvBaoCaoTyLe = () => {
     }, [formKhoaId]);
     const lopOptions = useMemo(() => {
         let l = PCTSV_CLASSES;
-        if (formKhoaId) l = l.filter((c) => c.khoaId === formKhoaId);
-        if (formKhoaPrefix) l = l.filter((c) => c.khoaPrefix === formKhoaPrefix);
+        if (formKhoaId)     l = l.filter((c) => c.khoaId      === formKhoaId);
+        if (formKhoaPrefix) l = l.filter((c) => c.khoaPrefix  === formKhoaPrefix);
         return l;
     }, [formKhoaId, formKhoaPrefix]);
     const gvcnOptions = useMemo(() => {
@@ -365,7 +346,7 @@ const PctsvBaoCaoTyLe = () => {
     }, [ss1KhoaId]);
     const ss1LopList = useMemo(() => {
         let l = PCTSV_CLASSES;
-        if (ss1KhoaId) l = l.filter((c) => c.khoaId === ss1KhoaId);
+        if (ss1KhoaId)     l = l.filter((c) => c.khoaId     === ss1KhoaId);
         if (ss1KhoaPrefix) l = l.filter((c) => c.khoaPrefix === ss1KhoaPrefix);
         return l;
     }, [ss1KhoaId, ss1KhoaPrefix]);
@@ -385,7 +366,7 @@ const PctsvBaoCaoTyLe = () => {
     }, [ss2KhoaId]);
     const ss2LopList = useMemo(() => {
         let l = PCTSV_CLASSES;
-        if (ss2KhoaId) l = l.filter((c) => c.khoaId === ss2KhoaId);
+        if (ss2KhoaId)     l = l.filter((c) => c.khoaId     === ss2KhoaId);
         if (ss2KhoaPrefix) l = l.filter((c) => c.khoaPrefix === ss2KhoaPrefix);
         return l;
     }, [ss2KhoaId, ss2KhoaPrefix]);
@@ -394,7 +375,7 @@ const PctsvBaoCaoTyLe = () => {
         return [...new Set(src.map((c) => c.gvcn).filter(Boolean))].sort();
     }, [ss2LopId, ss2LopList]);
 
-    // ── Xuất – derived ────────────────────────────────────────────────────────
+    // ── Xuất SV – derived ─────────────────────────────────────────────────────
     const filteredStudents = useMemo(() => {
         const q = xuatQuery.trim().toLowerCase();
         if (!q) return MOCK_STUDENTS;
@@ -408,53 +389,52 @@ const PctsvBaoCaoTyLe = () => {
         [xuatNamHoc, allSemesters]
     );
 
+    // ── Xuất lớp – derived ────────────────────────────────────────────────────
+    const xuatLopHocKyOpts = useMemo(
+        () => (xuatLopNamHoc ? allSemesters[xuatLopNamHoc] ?? [] : []),
+        [xuatLopNamHoc, allSemesters]
+    );
+    const xuatLopOptions = useMemo(() => {
+        if (!xuatLopKhoaId) return PCTSV_CLASSES;
+        return PCTSV_CLASSES.filter((c) => c.khoaId === xuatLopKhoaId);
+    }, [xuatLopKhoaId]);
+
     // ── Tỷ lệ handlers ────────────────────────────────────────────────────────
-    const handleNamHocChange = (v) => { setFormNamHoc(v); setFormHocKy(""); };
-    const handleKhoaChange = (v) => { setFormKhoaId(v); setFormKhoaPrefix(""); setFormLopId(""); setFormGvcn(""); };
-    const handleKhoaPrefixChange = (v) => { setFormKhoaPrefix(v); setFormLopId(""); setFormGvcn(""); };
-    const handleLopChange = (v) => {
+    const handleNamHocChange      = (v) => { setFormNamHoc(v); setFormHocKy(""); };
+    const handleKhoaChange        = (v) => { setFormKhoaId(v); setFormKhoaPrefix(""); setFormLopId(""); setFormGvcn(""); };
+    const handleKhoaPrefixChange  = (v) => { setFormKhoaPrefix(v); setFormLopId(""); setFormGvcn(""); };
+    const handleLopChange         = (v) => {
         setFormLopId(v);
         setFormGvcn(v ? (PCTSV_CLASSES.find((c) => c.id === v)?.gvcn ?? "") : "");
     };
     const handleLoc = () => {
         let classes = PCTSV_CLASSES;
-        if (formKhoaId) classes = classes.filter((c) => c.khoaId === formKhoaId);
-        if (formKhoaPrefix) classes = classes.filter((c) => c.khoaPrefix === formKhoaPrefix);
-        if (formLopId) classes = classes.filter((c) => c.id === formLopId);
-        if (formGvcn) classes = classes.filter((c) => c.gvcn === formGvcn);
+        if (formKhoaId)     classes = classes.filter((c) => c.khoaId      === formKhoaId);
+        if (formKhoaPrefix) classes = classes.filter((c) => c.khoaPrefix  === formKhoaPrefix);
+        if (formLopId)      classes = classes.filter((c) => c.id          === formLopId);
+        if (formGvcn)       classes = classes.filter((c) => c.gvcn        === formGvcn);
         const yearObj = allYears.find((y) => y.id === formNamHoc);
-        const semObj = hocKyOptions.find((s) => s.id === formHocKy);
+        const semObj  = hocKyOptions.find((s) => s.id === formHocKy);
         setApplied({
-            hocKy: semObj?.name ?? formHocKy,
-            hocKyId: formHocKy,
-            namHoc: yearObj?.name ?? formNamHoc,
+            hocKy:    semObj?.name  ?? formHocKy,
+            hocKyId:  formHocKy,
+            namHoc:   yearObj?.name ?? formNamHoc,
             namHocId: formNamHoc,
             classIds: classes.map((c) => c.id),
         });
     };
 
     // ── So sánh handlers ──────────────────────────────────────────────────────
-    const handleSs1KhoaChange = (v) => { setSs1KhoaId(v); setSs1KhoaPrefix(""); setSs1LopId(""); setSs1Gvcn(""); };
+    const handleSs1KhoaChange       = (v) => { setSs1KhoaId(v); setSs1KhoaPrefix(""); setSs1LopId(""); setSs1Gvcn(""); };
     const handleSs1KhoaPrefixChange = (v) => { setSs1KhoaPrefix(v); setSs1LopId(""); setSs1Gvcn(""); };
-    const handleSs1LopChange = (v) => {
-        setSs1LopId(v);
-        setSs1Gvcn(v ? (PCTSV_CLASSES.find((c) => c.id === v)?.gvcn ?? "") : "");
-    };
-
-    const handleSs2KhoaChange = (v) => { setSs2KhoaId(v); setSs2KhoaPrefix(""); setSs2LopId(""); setSs2Gvcn(""); };
+    const handleSs1LopChange        = (v) => { setSs1LopId(v); setSs1Gvcn(v ? (PCTSV_CLASSES.find((c) => c.id === v)?.gvcn ?? "") : ""); };
+    const handleSs2KhoaChange       = (v) => { setSs2KhoaId(v); setSs2KhoaPrefix(""); setSs2LopId(""); setSs2Gvcn(""); };
     const handleSs2KhoaPrefixChange = (v) => { setSs2KhoaPrefix(v); setSs2LopId(""); setSs2Gvcn(""); };
-    const handleSs2LopChange = (v) => {
-        setSs2LopId(v);
-        setSs2Gvcn(v ? (PCTSV_CLASSES.find((c) => c.id === v)?.gvcn ?? "") : "");
-    };
+    const handleSs2LopChange        = (v) => { setSs2LopId(v); setSs2Gvcn(v ? (PCTSV_CLASSES.find((c) => c.id === v)?.gvcn ?? "") : ""); };
 
     const handleSsLoc = () => {
-        const cls1 = ss1LopId
-            ? PCTSV_CLASSES.find((c) => c.id === ss1LopId)
-            : ss1LopList[0];
-        const cls2 = ss2LopId
-            ? PCTSV_CLASSES.find((c) => c.id === ss2LopId)
-            : ss2LopList[0];
+        const cls1 = ss1LopId ? PCTSV_CLASSES.find((c) => c.id === ss1LopId) : ss1LopList[0];
+        const cls2 = ss2LopId ? PCTSV_CLASSES.find((c) => c.id === ss2LopId) : ss2LopList[0];
         if (!cls1 || !cls2) return;
         setSsApplied({
             cls1: { id: cls1.id, name: cls1.tenLop, namHocId: ss1NamHoc, hocKyId: ss1HocKy },
@@ -467,50 +447,95 @@ const PctsvBaoCaoTyLe = () => {
         setApplied(null);
         setSsApplied(null);
         setXuatResult(null);
+        setXuatLopResult(null);
     };
 
-    // ── Xuất handlers ────────────────────────────────────────────────────────
+    // ── Xuất SV handlers ─────────────────────────────────────────────────────
     const handleXuatSelectStudent = (student) => {
         setXuatStudent(student);
         setXuatQuery(`${student.mssv} - ${student.hoTen}`);
         setXuatDropOpen(false);
     };
-
-    const handleXuatNamHocChange = (v) => {
-        setXuatNamHoc(v);
-        setXuatHocKy("");
-    };
-
-    const handleXuatTatCaChange = (checked) => {
+    const handleXuatNamHocChange  = (v) => { setXuatNamHoc(v); setXuatHocKy(""); };
+    const handleXuatTatCaChange   = (checked) => {
         setXuatTatCa(checked);
-        if (checked) {
-            setXuatNamHoc("");
-            setXuatHocKy("");
-        }
+        if (checked) { setXuatNamHoc(""); setXuatHocKy(""); }
     };
-
     const handleXuatLoc = () => {
         if (!xuatStudent) return;
         const allScores = mockStudentScores(xuatStudent.mssv);
         const rows = xuatTatCa
             ? allScores
             : allScores.filter(
-                (r) =>
-                    (!xuatNamHoc || r.yearId === xuatNamHoc) &&
-                    (!xuatHocKy || r.semId === xuatHocKy)
+                (r) => (!xuatNamHoc || r.yearId === xuatNamHoc) && (!xuatHocKy || r.semId === xuatHocKy)
             );
-        const avg = rows.length
-            ? (rows.reduce((a, r) => a + r.diem, 0) / rows.length).toFixed(1)
-            : "0";
+        const avg    = rows.length ? (rows.reduce((a, r) => a + r.diem, 0) / rows.length).toFixed(1) : "0";
         const avgCls = getClassification(parseFloat(avg));
         const khoaName = PCTSV_FACULTIES.find((f) => f.id === xuatStudent.khoaId)?.name ?? "";
         setXuatResult({ student: xuatStudent, rows, avg, avgCls, khoaName });
     };
-
     const handlePrintConfirm = () => {
         setShowPrintConfirm(false);
         setShowPrintSuccess(true);
         setTimeout(() => setShowPrintSuccess(false), 3000);
+    };
+
+    // ── Xuất lớp handlers ────────────────────────────────────────────────────
+    const handleXuatLopNamHocChange = (v) => { setXuatLopNamHoc(v); setXuatLopHocKy(""); };
+    const handleXuatLopKhoaChange   = (v) => { setXuatLopKhoaId(v); setXuatLopId(""); };
+
+    const handleXuatLopLoc = () => {
+        if (!xuatLopId || !xuatLopNamHoc || !xuatLopHocKy) return;
+        const classInfo = PCTSV_CLASSES.find((c) => c.id === xuatLopId);
+        if (!classInfo) return;
+
+        const yearObj  = allYears.find((y) => y.id === xuatLopNamHoc);
+        const semObj   = (allSemesters[xuatLopNamHoc] ?? []).find((s) => s.id === xuatLopHocKy);
+        const periodKey = `${xuatLopNamHoc}_${xuatLopHocKy}`;
+        const gvcnAll  = readLS(GVCN_ALL_DATA_KEY, {});
+
+        let members;
+        if (xuatLopId === LINKED_CLASS_ID) {
+            members = classMembers.map((member, idx) => {
+                let selfScore;
+                if (member.isLinkedToStudent) {
+                    selfScore = getStudentPeriodData(xuatLopNamHoc, xuatLopHocKy).total || 0;
+                } else {
+                    selfScore = fakeSelfScores[idx] ?? "-";
+                }
+                const data = (gvcnAll[periodKey] ?? {})[member.mssv];
+                let finalScore;
+                if (data && data.total !== undefined && data.total > 0) {
+                    finalScore = data.total;
+                } else {
+                    finalScore = fakeGvcnScores[idx] !== null && fakeGvcnScores[idx] !== undefined
+                        ? fakeGvcnScores[idx] : selfScore;
+                }
+                return {
+                    mssv:      member.mssv,
+                    ho:        member.ho,
+                    ten:       member.ten,
+                    ngaySinh:  member.ngaySinh,
+                    selfScore,
+                    finalScore,
+                };
+            });
+        } else {
+            members = generateFakeClassMembers(xuatLopId);
+        }
+
+        setXuatLopResult({
+            classInfo,
+            yearName:     yearObj?.name  ?? xuatLopNamHoc,
+            semesterName: semObj?.name   ?? xuatLopHocKy,
+            members,
+        });
+    };
+
+    const handleXuatModeChange = (mode) => {
+        setXuatMode(mode);
+        setXuatResult(null);
+        setXuatLopResult(null);
     };
 
     // ── Tỷ lệ computed ────────────────────────────────────────────────────────
@@ -520,11 +545,9 @@ const PctsvBaoCaoTyLe = () => {
         return aggregateStats(applied.classIds, applied.namHocId, applied.hocKyId);
     }, [applied]);
 
-    const statsArray = resultStats
-        ? [resultStats.xs, resultStats.tot, resultStats.kha, resultStats.yeu, resultStats.tb]
-        : [];
-    const total = statsArray.reduce((a, n) => a + n, 0);
-    const pct = (n) => (total > 0 ? ((n / total) * 100).toFixed(1) + "%" : "0%");
+    const statsArray = resultStats ? [resultStats.xs, resultStats.tot, resultStats.kha, resultStats.yeu, resultStats.tb] : [];
+    const total      = statsArray.reduce((a, n) => a + n, 0);
+    const pct        = (n) => (total > 0 ? ((n / total) * 100).toFixed(1) + "%" : "0%");
 
     // ── So sánh computed chart data ───────────────────────────────────────────
     const ssChartData = useMemo(() => {
@@ -533,20 +556,20 @@ const PctsvBaoCaoTyLe = () => {
         const s2 = mockStatsForClass(ssApplied.cls2.id, ssApplied.cls2.namHocId, ssApplied.cls2.hocKyId);
         const t1 = s1.xs + s1.tot + s1.kha + s1.yeu + s1.tb;
         const t2 = s2.xs + s2.tot + s2.kha + s2.yeu + s2.tb;
-        const p = (n, t) => (t > 0 ? ((n / t) * 100).toFixed(1) + "%" : "0%");
+        const p  = (n, t) => (t > 0 ? ((n / t) * 100).toFixed(1) + "%" : "0%");
         return [
-            { label: "Xuất sắc", val1: s1.xs, val2: s2.xs, pct1: p(s1.xs, t1), pct2: p(s2.xs, t2) },
-            { label: "Tốt", val1: s1.tot, val2: s2.tot, pct1: p(s1.tot, t1), pct2: p(s2.tot, t2) },
-            { label: "Khá", val1: s1.kha, val2: s2.kha, pct1: p(s1.kha, t1), pct2: p(s2.kha, t2) },
-            { label: "Yếu", val1: s1.yeu, val2: s2.yeu, pct1: p(s1.yeu, t1), pct2: p(s2.yeu, t2) },
-            { label: "Trung bình", val1: s1.tb, val2: s2.tb, pct1: p(s1.tb, t1), pct2: p(s2.tb, t2) },
+            { label: "Xuất sắc",   val1: s1.xs,  val2: s2.xs,  pct1: p(s1.xs,  t1), pct2: p(s2.xs,  t2) },
+            { label: "Tốt",        val1: s1.tot, val2: s2.tot, pct1: p(s1.tot, t1), pct2: p(s2.tot, t2) },
+            { label: "Khá",        val1: s1.kha, val2: s2.kha, pct1: p(s1.kha, t1), pct2: p(s2.kha, t2) },
+            { label: "Yếu",        val1: s1.yeu, val2: s2.yeu, pct1: p(s1.yeu, t1), pct2: p(s2.yeu, t2) },
+            { label: "Trung bình", val1: s1.tb,  val2: s2.tb,  pct1: p(s1.tb,  t1), pct2: p(s2.tb,  t2) },
         ];
     }, [ssApplied]);
 
     // ── Render ────────────────────────────────────────────────────────────────
     return (
         <>
-            {/* Print confirm modal – portal to body to avoid overflow clipping */}
+            {/* Print confirm modal */}
             {showPrintConfirm && createPortal(
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40">
                     <div className="bg-white rounded-xl shadow-2xl p-6 w-80 space-y-4">
@@ -563,16 +586,12 @@ const PctsvBaoCaoTyLe = () => {
                             </div>
                         </div>
                         <div className="flex gap-2 pt-1">
-                            <button
-                                onClick={() => setShowPrintConfirm(false)}
-                                className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer"
-                            >
+                            <button onClick={() => setShowPrintConfirm(false)}
+                                className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer">
                                 Hủy
                             </button>
-                            <button
-                                onClick={handlePrintConfirm}
-                                className="flex-1 px-4 py-2 rounded-lg bg-[#3d2f6b] text-white text-sm font-semibold hover:bg-[#4c3d84] transition-colors cursor-pointer"
-                            >
+                            <button onClick={handlePrintConfirm}
+                                className="flex-1 px-4 py-2 rounded-lg bg-[#3d2f6b] text-white text-sm font-semibold hover:bg-[#4c3d84] transition-colors cursor-pointer">
                                 In ngay
                             </button>
                         </div>
@@ -581,7 +600,7 @@ const PctsvBaoCaoTyLe = () => {
                 document.body
             )}
 
-            {/* Print success toast – portal to body */}
+            {/* Print success toast */}
             {showPrintSuccess && createPortal(
                 <div className="fixed bottom-6 right-6 z-[9999] flex items-center gap-3 bg-green-600 text-white px-5 py-3 rounded-xl shadow-xl">
                     <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -592,6 +611,18 @@ const PctsvBaoCaoTyLe = () => {
                 document.body
             )}
 
+            {/* Class print modal */}
+            {showClassPrintModal && xuatLopResult && (
+                <ClassScorePrintModal
+                    classId={xuatLopResult.classInfo.id}
+                    semesterName={xuatLopResult.semesterName}
+                    yearName={xuatLopResult.yearName}
+                    gvcnName={xuatLopResult.classInfo.gvcn ?? ""}
+                    members={xuatLopResult.members}
+                    onClose={() => setShowClassPrintModal(false)}
+                />
+            )}
+
             <div className="flex gap-4 md:gap-6 items-start">
 
                 {/* Sidebar */}
@@ -600,11 +631,9 @@ const PctsvBaoCaoTyLe = () => {
                         {TABS.map((tab) => {
                             const active = activeTab === tab.id;
                             return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => handleTabChange(tab.id)}
+                                <button key={tab.id} onClick={() => handleTabChange(tab.id)}
                                     className={`w-full flex items-center gap-3 px-4 py-3.5 text-sm font-semibold transition-all cursor-pointer border-b border-gray-100 last:border-b-0
-                    ${active
+                                        ${active
                                             ? "border-l-[3px] border-l-orange-400 bg-orange-50 text-orange-500"
                                             : "border-l-[3px] border-l-transparent text-gray-600 hover:bg-gray-50"
                                         }`}
@@ -620,244 +649,385 @@ const PctsvBaoCaoTyLe = () => {
                 {/* Main content */}
                 <div className="flex-1 min-w-0 space-y-4">
 
-                    {/* ── Xuất bảng điểm ── */}
+                    {/* ══ Xuất bảng điểm ══ */}
                     {activeTab === "xuat" && (
                         <>
-                            {/* Filter bar */}
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                                <div className="flex flex-wrap items-end gap-4">
-
-                                    {/* MSSV combobox */}
-                                    <div className="flex flex-col gap-1 flex-1 min-w-[220px]">
-                                        <label className="text-xs font-medium text-gray-500">Mã số sinh viên cần tra cứu điểm</label>
-                                        <div className="relative" ref={xuatDropRef}>
-                                            <input
-                                                type="text"
-                                                value={xuatQuery}
-                                                placeholder="Nhập MSSV hoặc họ tên..."
-                                                onChange={(e) => {
-                                                    setXuatQuery(e.target.value);
-                                                    setXuatStudent(null);
-                                                    setXuatDropOpen(true);
-                                                }}
-                                                onFocus={() => setXuatDropOpen(true)}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d2f6b]"
-                                            />
-                                            {xuatDropOpen && (
-                                                <div className="absolute z-30 mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
-                                                    {filteredStudents.length === 0 ? (
-                                                        <div className="px-3 py-3 text-sm text-gray-400 text-center">Không tìm thấy sinh viên</div>
-                                                    ) : (
-                                                        filteredStudents.map((s) => (
-                                                            <button
-                                                                key={s.mssv}
-                                                                onMouseDown={() => handleXuatSelectStudent(s)}
-                                                                className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#3d2f6b]/5 flex flex-col cursor-pointer border-b border-gray-100 last:border-b-0"
-                                                            >
-                                                                <span className="font-medium text-gray-800">{s.mssv}</span>
-                                                                <span className="text-xs text-gray-500">{s.hoTen}</span>
-                                                            </button>
-                                                        ))
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Năm học */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-medium text-gray-500">Năm học cần tra cứu điểm</label>
-                                        <select
-                                            value={xuatNamHoc}
-                                            onChange={(e) => handleXuatNamHocChange(e.target.value)}
-                                            disabled={xuatTatCa}
-                                            className={SEL}
-                                        >
-                                            <option value="">Năm học</option>
-                                            {allYears.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}
-                                        </select>
-                                    </div>
-
-                                    {/* Học kỳ */}
-                                    <div className="flex flex-col gap-1">
-                                        <label className="text-xs font-medium text-gray-500">Học kỳ cần tra cứu điểm</label>
-                                        <select
-                                            value={xuatHocKy}
-                                            onChange={(e) => setXuatHocKy(e.target.value)}
-                                            disabled={!xuatNamHoc || xuatTatCa}
-                                            className={SEL}
-                                        >
-                                            <option value="">Học kỳ</option>
-                                            {xuatHocKyOpts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                        </select>
-                                    </div>
-
-                                    {/* Tất cả + print + back + Lọc */}
-                                    <div className="flex items-center gap-2 pb-0.5">
-                                        <div className="flex flex-col items-center gap-1">
-                                            <label className="text-xs font-medium text-gray-500">Tất cả</label>
-                                            <input
-                                                type="checkbox"
-                                                checked={xuatTatCa}
-                                                onChange={(e) => handleXuatTatCaChange(e.target.checked)}
-                                                className="w-5 h-5 cursor-pointer accent-[#3d2f6b]"
-                                            />
-                                        </div>
-
-                                        {xuatResult && (
-                                            <>
-                                                <button
-                                                    onClick={() => setShowPrintConfirm(true)}
-                                                    title="In bảng điểm"
-                                                    className="p-2 text-[#3d2f6b] hover:bg-[#3d2f6b]/10 rounded-lg transition-colors cursor-pointer"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                            d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v7H6z" />
-                                                    </svg>
-                                                </button>
-                                                <button
-                                                    onClick={() => setXuatResult(null)}
-                                                    title="Quay lại"
-                                                    className="p-2 text-[#3d2f6b] hover:bg-[#3d2f6b]/10 rounded-lg transition-colors cursor-pointer"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                                    </svg>
-                                                </button>
-                                            </>
-                                        )}
-
-                                        <button
-                                            onClick={handleXuatLoc}
-                                            disabled={!xuatStudent}
-                                            className="px-6 py-2 bg-[#3d2f6b] hover:bg-[#4c3d84] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
-                                        >
-                                            Lọc
-                                        </button>
-                                    </div>
-                                </div>
+                            {/* Sub-mode toggle */}
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1 flex w-fit">
+                                <button
+                                    onClick={() => handleXuatModeChange("sv")}
+                                    className={`px-5 py-2 rounded-md text-sm font-semibold transition-colors cursor-pointer ${
+                                        xuatMode === "sv"
+                                            ? "bg-[#3d2f6b] text-white shadow-sm"
+                                            : "text-gray-500 hover:text-gray-700"
+                                    }`}
+                                >
+                                    Theo sinh viên
+                                </button>
+                                <button
+                                    onClick={() => handleXuatModeChange("lop")}
+                                    className={`px-5 py-2 rounded-md text-sm font-semibold transition-colors cursor-pointer ${
+                                        xuatMode === "lop"
+                                            ? "bg-[#3d2f6b] text-white shadow-sm"
+                                            : "text-gray-500 hover:text-gray-700"
+                                    }`}
+                                >
+                                    Theo lớp
+                                </button>
                             </div>
 
-                            {/* Result */}
-                            {xuatResult ? (
-                                xuatResult.rows.length === 0 ? (
-                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-10 text-center">
-                                        <p className="text-gray-500 text-sm">Không tìm thấy dữ liệu điểm phù hợp với bộ lọc đã chọn.</p>
-                                    </div>
-                                ) : (
-                                    <div
-                                        className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-2xl mx-auto"
-                                        style={{ fontFamily: "'Times New Roman', Times, serif" }}
-                                    >
-                                        {/* Header */}
-                                        <div className="flex justify-between text-[13px] mb-5">
-                                            <div className="text-center leading-5">
-                                                <p className="font-bold">ĐẠI HỌC ĐÀ NẴNG</p>
-                                                <p className="font-bold underline">TRƯỜNG ĐẠI HỌC KINH TẾ</p>
+                            {/* ── Xuất theo sinh viên ── */}
+                            {xuatMode === "sv" && (
+                                <>
+                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                                        <div className="flex flex-wrap items-end gap-4">
+                                            {/* MSSV combobox */}
+                                            <div className="flex flex-col gap-1 flex-1 min-w-[220px]">
+                                                <label className="text-xs font-medium text-gray-500">Mã số sinh viên cần tra cứu điểm</label>
+                                                <div className="relative" ref={xuatDropRef}>
+                                                    <input
+                                                        type="text"
+                                                        value={xuatQuery}
+                                                        placeholder="Nhập MSSV hoặc họ tên..."
+                                                        onChange={(e) => { setXuatQuery(e.target.value); setXuatStudent(null); setXuatDropOpen(true); }}
+                                                        onFocus={() => setXuatDropOpen(true)}
+                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d2f6b]"
+                                                    />
+                                                    {xuatDropOpen && (
+                                                        <div className="absolute z-30 mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                                                            {filteredStudents.length === 0 ? (
+                                                                <div className="px-3 py-3 text-sm text-gray-400 text-center">Không tìm thấy sinh viên</div>
+                                                            ) : (
+                                                                filteredStudents.map((s) => (
+                                                                    <button key={s.mssv} onMouseDown={() => handleXuatSelectStudent(s)}
+                                                                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-[#3d2f6b]/5 flex flex-col cursor-pointer border-b border-gray-100 last:border-b-0">
+                                                                        <span className="font-medium text-gray-800">{s.mssv}</span>
+                                                                        <span className="text-xs text-gray-500">{s.hoTen}</span>
+                                                                    </button>
+                                                                ))
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div className="text-center leading-5">
-                                                <p className="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-                                                <p className="font-bold">Độc lập – Tự do – Hạnh phúc</p>
-                                                <p className="text-center">───────────</p>
-                                            </div>
-                                        </div>
 
-                                        {/* Title */}
-                                        <h2 className="text-center font-bold text-[15px] uppercase mb-5 tracking-wide">
-                                            KẾT QUẢ RÈN LUYỆN CỦA SINH VIÊN
-                                        </h2>
-
-                                        {/* Student info */}
-                                        <div className="text-[13px] mb-5 space-y-1">
-                                            <div className="flex gap-10">
-                                                <span>Họ và tên: <strong>{xuatResult.student.hoTen}</strong></span>
-                                                <span>Lớp: <strong>{xuatResult.student.lopId}</strong></span>
+                                            {/* Năm học */}
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs font-medium text-gray-500">Năm học cần tra cứu điểm</label>
+                                                <select value={xuatNamHoc} onChange={(e) => handleXuatNamHocChange(e.target.value)}
+                                                    disabled={xuatTatCa} className={SEL}>
+                                                    <option value="">Năm học</option>
+                                                    {allYears.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}
+                                                </select>
                                             </div>
-                                            <div className="flex gap-10">
-                                                <span>Ngày sinh: <strong>{xuatResult.student.ngaySinh}</strong></span>
-                                                <span>Khoa: <strong>{xuatResult.khoaName}</strong></span>
-                                            </div>
-                                        </div>
 
-                                        {/* Score table */}
-                                        <table className="w-full text-[13px] border-collapse mb-8">
-                                            <thead>
-                                                <tr>
-                                                    <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50 w-10">TT</th>
-                                                    <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50">Học kỳ</th>
-                                                    <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50 w-16">Điểm</th>
-                                                    <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50 w-24">Xếp loại</th>
-                                                    <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50 w-24">Ghi chú</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {xuatResult.rows.map((row, i) => (
-                                                    <tr key={`${row.yearId}-${row.semId}`}>
-                                                        <td className="border border-gray-500 px-3 py-2 text-center">{i + 1}</td>
-                                                        <td className="border border-gray-500 px-3 py-2">{row.label}</td>
-                                                        <td className="border border-gray-500 px-3 py-2 text-center">{row.diem}</td>
-                                                        <td className="border border-gray-500 px-3 py-2 text-center">{row.xepLoai}</td>
-                                                        <td className="border border-gray-500 px-3 py-2"></td>
-                                                    </tr>
-                                                ))}
-                                                <tr>
-                                                    <td className="border border-gray-500 px-3 py-2"></td>
-                                                    <td className="border border-gray-500 px-3 py-2 font-bold">Điểm trung bình</td>
-                                                    <td className="border border-gray-500 px-3 py-2 text-center font-bold">{xuatResult.avg}</td>
-                                                    <td className="border border-gray-500 px-3 py-2 text-center font-bold">{xuatResult.avgCls}</td>
-                                                    <td className="border border-gray-500 px-3 py-2"></td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-
-                                        {/* Date & authority */}
-                                        <div className="flex justify-end text-[13px] mb-10">
-                                            <div className="text-center leading-5">
-                                                <p className="italic">Đà Nẵng, ngày 10 tháng 03 năm 2026</p>
-                                                <p className="font-bold mt-1">TL. HIỆU TRƯỞNG</p>
-                                                <p className="font-bold">KT. TRƯỞNG PHÒNG CÔNG TÁC SINH VIÊN,</p>
-                                                <p className="font-bold">QUAN HỆ DOANH NGHIỆP VÀ TRUYỀN THÔNG</p>
-                                                <p className="font-bold">PHÓ TRƯỞNG PHÒNG</p>
+                                            {/* Học kỳ */}
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs font-medium text-gray-500">Học kỳ cần tra cứu điểm</label>
+                                                <select value={xuatHocKy} onChange={(e) => setXuatHocKy(e.target.value)}
+                                                    disabled={!xuatNamHoc || xuatTatCa} className={SEL}>
+                                                    <option value="">Học kỳ</option>
+                                                    {xuatHocKyOpts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                </select>
                                             </div>
-                                        </div>
 
-                                        {/* Signatures */}
-                                        <div className="flex justify-between text-[13px]">
-                                            <div>
-                                                <p className="font-bold">NGƯỜI LẬP BẢNG</p>
-                                                <p className="mt-14">Nguyễn Lê Duy</p>
-                                            </div>
-                                            <div className="text-center mr-8">
-                                                <p className="mt-14">Lê Thị Thu Hiền</p>
+                                            {/* Tất cả + actions */}
+                                            <div className="flex items-center gap-2 pb-0.5">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <label className="text-xs font-medium text-gray-500">Tất cả</label>
+                                                    <input type="checkbox" checked={xuatTatCa}
+                                                        onChange={(e) => handleXuatTatCaChange(e.target.checked)}
+                                                        className="w-5 h-5 cursor-pointer accent-[#3d2f6b]" />
+                                                </div>
+                                                {xuatResult && (
+                                                    <>
+                                                        <button onClick={() => setShowPrintConfirm(true)} title="In bảng điểm"
+                                                            className="p-2 text-[#3d2f6b] hover:bg-[#3d2f6b]/10 rounded-lg transition-colors cursor-pointer">
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                                                    d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v7H6z" />
+                                                            </svg>
+                                                        </button>
+                                                        <button onClick={() => setXuatResult(null)} title="Quay lại"
+                                                            className="p-2 text-[#3d2f6b] hover:bg-[#3d2f6b]/10 rounded-lg transition-colors cursor-pointer">
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                                            </svg>
+                                                        </button>
+                                                    </>
+                                                )}
+                                                <button onClick={handleXuatLoc} disabled={!xuatStudent}
+                                                    className="px-6 py-2 bg-[#3d2f6b] hover:bg-[#4c3d84] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer">
+                                                    Lọc
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
-                                )
-                            ) : (
-                                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
-                                    <div className="flex flex-col items-center justify-center text-center space-y-4">
-                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                                            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                            </svg>
+
+                                    {xuatResult ? (
+                                        xuatResult.rows.length === 0 ? (
+                                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-10 text-center">
+                                                <p className="text-gray-500 text-sm">Không tìm thấy dữ liệu điểm phù hợp với bộ lọc đã chọn.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 max-w-2xl mx-auto"
+                                                style={{ fontFamily: "'Times New Roman', Times, serif" }}>
+                                                <div className="flex justify-between text-[13px] mb-5">
+                                                    <div className="text-center leading-5">
+                                                        <p className="font-bold">ĐẠI HỌC ĐÀ NẴNG</p>
+                                                        <p className="font-bold underline">TRƯỜNG ĐẠI HỌC KINH TẾ</p>
+                                                    </div>
+                                                    <div className="text-center leading-5">
+                                                        <p className="font-bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+                                                        <p className="font-bold">Độc lập – Tự do – Hạnh phúc</p>
+                                                        <p className="text-center">───────────</p>
+                                                    </div>
+                                                </div>
+                                                <h2 className="text-center font-bold text-[15px] uppercase mb-5 tracking-wide">
+                                                    KẾT QUẢ RÈN LUYỆN CỦA SINH VIÊN
+                                                </h2>
+                                                <div className="text-[13px] mb-5 space-y-1">
+                                                    <div className="flex gap-10">
+                                                        <span>Họ và tên: <strong>{xuatResult.student.hoTen}</strong></span>
+                                                        <span>Lớp: <strong>{xuatResult.student.lopId}</strong></span>
+                                                    </div>
+                                                    <div className="flex gap-10">
+                                                        <span>Ngày sinh: <strong>{xuatResult.student.ngaySinh}</strong></span>
+                                                        <span>Khoa: <strong>{xuatResult.khoaName}</strong></span>
+                                                    </div>
+                                                </div>
+                                                <table className="w-full text-[13px] border-collapse mb-8">
+                                                    <thead>
+                                                        <tr>
+                                                            <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50 w-10">TT</th>
+                                                            <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50">Học kỳ</th>
+                                                            <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50 w-16">Điểm</th>
+                                                            <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50 w-24">Xếp loại</th>
+                                                            <th className="border border-gray-500 px-3 py-2 text-center font-semibold bg-gray-50 w-24">Ghi chú</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {xuatResult.rows.map((row, i) => (
+                                                            <tr key={`${row.yearId}-${row.semId}`}>
+                                                                <td className="border border-gray-500 px-3 py-2 text-center">{i + 1}</td>
+                                                                <td className="border border-gray-500 px-3 py-2">{row.label}</td>
+                                                                <td className="border border-gray-500 px-3 py-2 text-center">{row.diem}</td>
+                                                                <td className="border border-gray-500 px-3 py-2 text-center">{row.xepLoai}</td>
+                                                                <td className="border border-gray-500 px-3 py-2"></td>
+                                                            </tr>
+                                                        ))}
+                                                        <tr>
+                                                            <td className="border border-gray-500 px-3 py-2"></td>
+                                                            <td className="border border-gray-500 px-3 py-2 font-bold">Điểm trung bình</td>
+                                                            <td className="border border-gray-500 px-3 py-2 text-center font-bold">{xuatResult.avg}</td>
+                                                            <td className="border border-gray-500 px-3 py-2 text-center font-bold">{xuatResult.avgCls}</td>
+                                                            <td className="border border-gray-500 px-3 py-2"></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                                <div className="flex justify-end text-[13px] mb-10">
+                                                    <div className="text-center leading-5">
+                                                        <p className="italic">Đà Nẵng, ngày 10 tháng 03 năm 2026</p>
+                                                        <p className="font-bold mt-1">TL. HIỆU TRƯỞNG</p>
+                                                        <p className="font-bold">KT. TRƯỞNG PHÒNG CÔNG TÁC SINH VIÊN,</p>
+                                                        <p className="font-bold">QUAN HỆ DOANH NGHIỆP VÀ TRUYỀN THÔNG</p>
+                                                        <p className="font-bold">PHÓ TRƯỞNG PHÒNG</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex justify-between text-[13px]">
+                                                    <div>
+                                                        <p className="font-bold">NGƯỜI LẬP BẢNG</p>
+                                                        <p className="mt-14">Nguyễn Lê Duy</p>
+                                                    </div>
+                                                    <div className="text-center mr-8">
+                                                        <p className="mt-14">Lê Thị Thu Hiền</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    ) : (
+                                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+                                            <div className="flex flex-col items-center justify-center text-center space-y-4">
+                                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                                                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                    </svg>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <h3 className="text-lg font-semibold text-gray-700">Chưa có dữ liệu bảng điểm</h3>
+                                                    <p className="text-sm text-gray-500">
+                                                        Vui lòng nhập MSSV, chọn năm học / học kỳ và nhấn{" "}
+                                                        <span className="font-semibold text-[#3d2f6b]">Lọc</span> để xem kết quả.
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="space-y-1">
-                                            <h3 className="text-lg font-semibold text-gray-700">Chưa có dữ liệu bảng điểm</h3>
-                                            <p className="text-sm text-gray-500">
-                                                Vui lòng nhập MSSV, chọn năm học / học kỳ và nhấn{" "}
-                                                <span className="font-semibold text-[#3d2f6b]">Lọc</span>{" "}
-                                                để xem kết quả.
-                                            </p>
+                                    )}
+                                </>
+                            )}
+
+                            {/* ── Xuất theo lớp ── */}
+                            {xuatMode === "lop" && (
+                                <>
+                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                                        <div className="flex flex-wrap items-end gap-4">
+                                            {/* Năm học */}
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs font-medium text-gray-500">Năm học <span className="text-red-500">*</span></label>
+                                                <select value={xuatLopNamHoc} onChange={(e) => handleXuatLopNamHocChange(e.target.value)} className={SEL}>
+                                                    <option value="">Chọn năm học</option>
+                                                    {allYears.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}
+                                                </select>
+                                            </div>
+
+                                            {/* Học kỳ */}
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs font-medium text-gray-500">Học kỳ <span className="text-red-500">*</span></label>
+                                                <select value={xuatLopHocKy} onChange={(e) => setXuatLopHocKy(e.target.value)}
+                                                    disabled={!xuatLopNamHoc} className={SEL}>
+                                                    <option value="">Chọn học kỳ</option>
+                                                    {xuatLopHocKyOpts.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                                </select>
+                                            </div>
+
+                                            {/* Khoa */}
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs font-medium text-gray-500">Khoa</label>
+                                                <select value={xuatLopKhoaId} onChange={(e) => handleXuatLopKhoaChange(e.target.value)} className={SEL}>
+                                                    <option value="">Tất cả khoa</option>
+                                                    {PCTSV_FACULTIES.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                                </select>
+                                            </div>
+
+                                            {/* Lớp */}
+                                            <div className="flex flex-col gap-1">
+                                                <label className="text-xs font-medium text-gray-500">Lớp <span className="text-red-500">*</span></label>
+                                                <select value={xuatLopId} onChange={(e) => setXuatLopId(e.target.value)} className={SEL}>
+                                                    <option value="">Chọn lớp</option>
+                                                    {xuatLopOptions.map((c) => <option key={c.id} value={c.id}>{c.tenLop}</option>)}
+                                                </select>
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="flex items-center gap-2 pb-0.5">
+                                                {xuatLopResult && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => setShowClassPrintModal(true)}
+                                                            title="In bảng điểm lớp"
+                                                            className="flex items-center gap-1.5 px-4 py-2 border border-[#3d2f6b] text-[#3d2f6b] text-sm font-semibold rounded-lg hover:bg-purple-50 transition-colors cursor-pointer"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                                                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                                            </svg>
+                                                            In bảng điểm
+                                                        </button>
+                                                        <button onClick={() => setXuatLopResult(null)} title="Quay lại"
+                                                            className="p-2 text-[#3d2f6b] hover:bg-[#3d2f6b]/10 rounded-lg transition-colors cursor-pointer">
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                                            </svg>
+                                                        </button>
+                                                    </>
+                                                )}
+                                                <button
+                                                    onClick={handleXuatLopLoc}
+                                                    disabled={!xuatLopId || !xuatLopNamHoc || !xuatLopHocKy}
+                                                    className="px-6 py-2 bg-[#3d2f6b] hover:bg-[#4c3d84] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+                                                >
+                                                    Lọc
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+
+                                    {xuatLopResult ? (
+                                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                            {/* Result header */}
+                                            <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                                                <div className="flex items-center gap-3 text-sm">
+                                                    <span className="font-bold text-[#3d2f6b]">Lớp {xuatLopResult.classInfo.tenLop}</span>
+                                                    <span className="text-gray-400">·</span>
+                                                    <span className="text-gray-600">{xuatLopResult.semesterName}</span>
+                                                    {xuatLopResult.yearName && (
+                                                        <>
+                                                            <span className="text-gray-400">·</span>
+                                                            <span className="text-gray-600">Năm học {xuatLopResult.yearName}</span>
+                                                        </>
+                                                    )}
+                                                    <span className="text-gray-400">·</span>
+                                                    <span className="text-gray-500">GVCN: {xuatLopResult.classInfo.gvcn}</span>
+                                                </div>
+                                                <span className="text-xs text-gray-400">{xuatLopResult.members.length} sinh viên</span>
+                                            </div>
+
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm">
+                                                    <thead>
+                                                        <tr className="bg-gray-50 border-b border-gray-200">
+                                                            <th className="px-4 py-3 text-center font-semibold text-gray-700 border-r border-gray-200 w-10">STT</th>
+                                                            <th className="px-4 py-3 text-center font-semibold text-gray-700 border-r border-gray-200 w-36">MSSV</th>
+                                                            <th className="px-4 py-3 text-left   font-semibold text-gray-700 border-r border-gray-200">Họ</th>
+                                                            <th className="px-4 py-3 text-left   font-semibold text-gray-700 border-r border-gray-200 w-24">Tên</th>
+                                                            <th className="px-4 py-3 text-center font-semibold text-gray-700 border-r border-gray-200 w-28">Ngày sinh</th>
+                                                            <th className="px-4 py-3 text-center font-semibold text-gray-700 border-r border-gray-200 w-32">Điểm SV tự ĐG</th>
+                                                            <th className="px-4 py-3 text-center font-semibold text-gray-700 border-r border-gray-200 w-32">Điểm GVCN ĐG</th>
+                                                            <th className="px-4 py-3 text-center font-semibold text-gray-700 w-24">Xếp loại</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {xuatLopResult.members.map((m, idx) => {
+                                                            const fs = m.finalScore !== "-" && m.finalScore !== null && m.finalScore !== undefined ? m.finalScore : "-";
+                                                            const ss = m.selfScore  !== "-" && m.selfScore  !== null && m.selfScore  !== undefined ? m.selfScore  : "-";
+                                                            const xepLoai = fs !== "-" ? getClassification(Number(fs)) : ss !== "-" ? getClassification(Number(ss)) : "-";
+                                                            return (
+                                                                <tr key={m.mssv} className={`border-b border-gray-100 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/50"} hover:bg-purple-50/30 transition-colors`}>
+                                                                    <td className="px-4 py-3 text-center text-gray-400 border-r border-gray-100">{idx + 1}</td>
+                                                                    <td className="px-4 py-3 text-center font-mono text-xs text-gray-600 border-r border-gray-100">{m.mssv}</td>
+                                                                    <td className="px-4 py-3 text-gray-700 border-r border-gray-100">{m.ho}</td>
+                                                                    <td className="px-4 py-3 font-semibold text-gray-800 border-r border-gray-100">{m.ten}</td>
+                                                                    <td className="px-4 py-3 text-center text-gray-600 border-r border-gray-100">{m.ngaySinh}</td>
+                                                                    <td className="px-4 py-3 text-center border-r border-gray-100">
+                                                                        <span className="font-semibold text-[#3d2f6b]">{ss}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-center border-r border-gray-100">
+                                                                        <span className="font-semibold text-emerald-700">{fs}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-center text-gray-700 text-xs font-medium">{xepLoai}</td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+                                            <div className="flex flex-col items-center justify-center text-center space-y-4">
+                                                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                                                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <h3 className="text-lg font-semibold text-gray-700">Chưa có dữ liệu bảng điểm lớp</h3>
+                                                    <p className="text-sm text-gray-500">
+                                                        Vui lòng chọn năm học, học kỳ, lớp và nhấn{" "}
+                                                        <span className="font-semibold text-[#3d2f6b]">Lọc</span> để xem kết quả.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </>
                     )}
 
-                    {/* ── Báo cáo so sánh ── */}
+                    {/* ══ Báo cáo so sánh ══ */}
                     {activeTab === "so-sanh" && (
                         <>
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 space-y-5">
@@ -921,10 +1091,8 @@ const PctsvBaoCaoTyLe = () => {
                                             <option value="">GVCN</option>
                                             {ss2GvcnOpts.map((g) => <option key={g} value={g}>{g}</option>)}
                                         </select>
-                                        <button
-                                            onClick={handleSsLoc}
-                                            className="px-6 py-2 bg-[#3d2f6b] hover:bg-[#4c3d84] text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
-                                        >
+                                        <button onClick={handleSsLoc}
+                                            className="px-6 py-2 bg-[#3d2f6b] hover:bg-[#4c3d84] text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer">
                                             Lọc
                                         </button>
                                     </div>
@@ -947,8 +1115,7 @@ const PctsvBaoCaoTyLe = () => {
                                             <h3 className="text-lg font-semibold text-gray-700">Chưa có dữ liệu so sánh</h3>
                                             <p className="text-sm text-gray-500">
                                                 Vui lòng chọn thông tin 2 lớp và nhấn{" "}
-                                                <span className="font-semibold text-[#3d2f6b]">Lọc</span>{" "}
-                                                để xem biểu đồ so sánh.
+                                                <span className="font-semibold text-[#3d2f6b]">Lọc</span> để xem biểu đồ so sánh.
                                             </p>
                                         </div>
                                     </div>
@@ -957,7 +1124,7 @@ const PctsvBaoCaoTyLe = () => {
                         </>
                     )}
 
-                    {/* ── Báo cáo tỷ lệ ── */}
+                    {/* ══ Báo cáo tỷ lệ ══ */}
                     {activeTab === "ty-le" && (
                         <>
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -986,10 +1153,8 @@ const PctsvBaoCaoTyLe = () => {
                                         <option value="">GVCN</option>
                                         {gvcnOptions.map((g) => <option key={g} value={g}>{g}</option>)}
                                     </select>
-                                    <button
-                                        onClick={handleLoc}
-                                        className="px-6 py-2 bg-[#3d2f6b] hover:bg-[#4c3d84] text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer"
-                                    >
+                                    <button onClick={handleLoc}
+                                        className="px-6 py-2 bg-[#3d2f6b] hover:bg-[#4c3d84] text-white text-sm font-semibold rounded-lg transition-colors cursor-pointer">
                                         Lọc
                                     </button>
                                 </div>
@@ -997,13 +1162,9 @@ const PctsvBaoCaoTyLe = () => {
                             {applied && resultStats ? (
                                 <div className="space-y-3">
                                     <div className="flex justify-end">
-                                        <button
-                                            onClick={() => setApplied(null)}
+                                        <button onClick={() => setApplied(null)}
                                             className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-[#3d2f6b] font-bold text-lg transition-colors cursor-pointer"
-                                            title="Xóa kết quả lọc"
-                                        >
-                                            ←
-                                        </button>
+                                            title="Xóa kết quả lọc">←</button>
                                     </div>
                                     {total === 0 ? (
                                         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-10 text-center">
@@ -1053,8 +1214,7 @@ const PctsvBaoCaoTyLe = () => {
                                             <h3 className="text-lg font-semibold text-gray-700">Chưa có dữ liệu thống kê</h3>
                                             <p className="text-sm text-gray-500">
                                                 Vui lòng chọn bộ lọc và nhấn{" "}
-                                                <span className="font-semibold text-[#3d2f6b]">Lọc</span>{" "}
-                                                để xem báo cáo tỷ lệ.
+                                                <span className="font-semibold text-[#3d2f6b]">Lọc</span> để xem báo cáo tỷ lệ.
                                             </p>
                                         </div>
                                     </div>

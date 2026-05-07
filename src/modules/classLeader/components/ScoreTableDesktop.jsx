@@ -1,4 +1,35 @@
 import React from "react";
+import { getGpaFromSystemB, convertGpaToScore } from "../../../utils/gpaConvert"; // ← THÊM
+
+// Hiển thị điểm auto-fill từ System B
+const AutoScoreCell = ({ mssv }) => {
+  const auto = convertGpaToScore(getGpaFromSystemB(mssv));
+  if (auto === null) return <span className="text-gray-400 italic text-sm">-</span>;
+  return (
+    <div className="flex flex-col items-center leading-tight">
+      <span className="font-bold text-blue-700">{auto}</span>
+      <span className="text-[10px] text-blue-400">HT-B</span>
+    </div>
+  );
+};
+
+// Cột minh chứng cho note items
+const AutoNoteCell = ({ mssv, note }) => {
+  const gpa = getGpaFromSystemB(mssv);
+  const auto = convertGpaToScore(gpa);
+  return (
+    <div className="text-xs space-y-1">
+      <div className="text-gray-400 italic">{note}</div>
+      {gpa !== null ? (
+        <div className="inline-flex items-center gap-1 bg-blue-50 border border-blue-200 text-blue-700 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap">
+          🔗 HT-B · ĐTB: {gpa} → {auto}đ
+        </div>
+      ) : (
+        <div className="text-amber-500 text-[11px] italic">⏳ Chờ Hệ thống B</div>
+      )}
+    </div>
+  );
+};
 
 const ScoreTableDesktop = ({
   scoreData,
@@ -13,6 +44,7 @@ const ScoreTableDesktop = ({
   handleUploadClick,
   handleImageClick,
   handleRemoveTempImage,
+  mssv = null, // ← THÊM
 }) => {
   const idCell = (id, rowSpan) => (
     <td
@@ -68,12 +100,13 @@ const ScoreTableDesktop = ({
                           <td className="px-4 py-2 border-r border-gray-200 text-sm whitespace-pre-line text-gray-700">{item.description}</td>
                           <td className="px-4 py-2 text-center border-r border-gray-200">{item.maxScore}</td>
                           <td className="px-4 py-2 text-center border-r border-gray-200">
+                            {/* ← SỬA */}
                             {item.note ? (
-                              <span className="text-gray-400 italic">-</span>
+                              <AutoScoreCell mssv={mssv} />
                             ) : isEditing ? (
                               <input type="number" min="0" max={item.maxScore} value={displayScore}
                                 onChange={(e) => handleScoreChange(itemKey, e.target.value, item.maxScore)}
-                                className="w-12 px-1 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent"
+                                className="w-12 px-1 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-[#3d2f6b]"
                                 placeholder="0" />
                             ) : displayScore !== "" ? displayScore : "-"}
                           </td>
@@ -81,8 +114,9 @@ const ScoreTableDesktop = ({
                             {item.reviewerScore !== null && item.reviewerScore !== undefined ? item.reviewerScore : "-"}
                           </td>
                           <td className="px-4 py-2 text-center">
+                            {/* ← SỬA */}
                             {item.note ? (
-                              <span className="text-xs text-gray-400 italic">{item.note}</span>
+                              <AutoNoteCell mssv={mssv} note={item.note} />
                             ) : (
                               <>
                                 {isEditing && (
@@ -126,7 +160,6 @@ const ScoreTableDesktop = ({
                   }
 
                   const rows = [];
-
                   if (hasTitle) {
                     rows.push(
                       <tr key={`cr-${criterionIdx}-title`} className="border-t border-gray-100 bg-gray-50/40">
@@ -148,12 +181,13 @@ const ScoreTableDesktop = ({
                         <td className="px-4 py-2 border-r border-gray-200 text-sm whitespace-pre-line text-gray-700">{item.description}</td>
                         <td className="px-4 py-2 text-center border-r border-gray-200">{item.maxScore}</td>
                         <td className="px-4 py-2 text-center border-r border-gray-200">
+                          {/* ← SỬA */}
                           {item.note ? (
-                            <span className="text-gray-400 italic">-</span>
+                            <AutoScoreCell mssv={mssv} />
                           ) : isEditing ? (
                             <input type="number" min="0" max={item.maxScore} value={displayScore}
                               onChange={(e) => handleScoreChange(itemKey, e.target.value, item.maxScore)}
-                              className="w-12 px-1 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-[#3d2f6b] focus:border-transparent"
+                              className="w-12 px-1 py-1 border border-gray-300 rounded text-center focus:outline-none focus:ring-2 focus:ring-[#3d2f6b]"
                               placeholder="0" />
                           ) : displayScore !== "" ? displayScore : "-"}
                         </td>
@@ -161,8 +195,9 @@ const ScoreTableDesktop = ({
                           {item.reviewerScore !== null && item.reviewerScore !== undefined ? item.reviewerScore : "-"}
                         </td>
                         <td className="px-4 py-2 text-center">
+                          {/* ← SỬA */}
                           {item.note ? (
-                            <span className="text-xs text-gray-400 italic">{item.note}</span>
+                            <AutoNoteCell mssv={mssv} note={item.note} />
                           ) : (
                             <>
                               {isEditing && (
